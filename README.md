@@ -1,5 +1,8 @@
 # Face Dataset Studio
 
+[**🚀 웹사이트 바로 실행 (Face Dataset Studio)**](https://crevizu1-ship-it.github.io/face-prompt-generator/)
+
+
 미드저니 얼굴 학습용 랜덤 프롬프트 생성기. `index.html`을 브라우저로 열면 동작합니다.
 
 - 1~200개 생성, 기본 무표정 비율 80% (반올림하여 정확한 개수 지정)
