@@ -3,7 +3,8 @@
 미드저니 얼굴 학습용 랜덤 프롬프트 생성기. `index.html`을 브라우저로 열면 동작합니다.
 
 - 1~200개 생성, 기본 무표정 비율 80% (반올림하여 정확한 개수 지정)
-- 선택된 스타일을 셔플한 뒤 고르게 순환하여 샘플링
+- 선택된 헤어·머리 각도·의상·배경을 셔플한 뒤 고르게 순환하여 샘플링
+- 배경 40종: 단색 스튜디오, 실내, 실외. 전체 해제하면 배경 프롬프트 생략.
 - 전체/개별 복사 및 TXT 저장
 - 공통 프롬프트와 미드저니 파라미터 수정
 - 네트워크, API 키, 서버, 외부 라이브러리 불필요
@@ -14,7 +15,7 @@
 
 ## 생성 규칙
 
-얼굴형·눈 색·머리 색은 무작위로 변경하지 않습니다. 동일 인물 참조 이미지를 Midjourney에 별도 적용하고, 실제 얼굴 일치 여부와 각도를 검수하세요.
+얼굴형·눈 색·머리 색은 무작위로 변경하지 않습니다. 특정 배경과 얼굴이 과하게 연관되지 않도록 배경을 다양화하고, 실내·실외는 흐릿하게 묘사합니다. 동일 인물 참조 이미지를 Midjourney에 별도 적용하고, 실제 얼굴 일치 여부와 각도를 검수하세요.
 
 ## 스타일 목록
 
@@ -218,3 +219,48 @@
 | 아주 옅은 한쪽 미소 | subtle asymmetric smile |
 | 미세한 집중 표정 | subtly focused expression |
 | 살짝 편안하게 감은 눈 | eyes gently closed |
+
+### 배경 (40종)
+
+| 한국어 | 영어 프롬프트 |
+|---|---|
+| 흰색 스튜디오 | plain white studio backdrop |
+| 밝은 회색 스튜디오 | plain light gray studio backdrop |
+| 중간 회색 스튜디오 | plain medium gray studio backdrop |
+| 차콜 스튜디오 | plain charcoal gray studio backdrop |
+| 검은색 스튜디오 | plain black studio backdrop |
+| 아이보리 스튜디오 | plain ivory studio backdrop |
+| 베이지 스튜디오 | plain beige studio backdrop |
+| 연분홍 스튜디오 | plain pale pink studio backdrop |
+| 연하늘색 스튜디오 | plain pale blue studio backdrop |
+| 세이지 그린 스튜디오 | plain muted sage green studio backdrop |
+| 연보라 스튜디오 | plain muted lavender studio backdrop |
+| 웜그레이 스튜디오 | plain warm gray studio backdrop |
+| 흐린 회색 그라데이션 | subtle gray gradient studio backdrop |
+| 흐린 베이지 그라데이션 | subtle beige gradient studio backdrop |
+| 흰 벽 | simple white interior wall |
+| 콘크리트 벽 | plain concrete wall |
+| 벽돌 벽 | softly blurred brick wall |
+| 목재 벽 | softly blurred wooden wall |
+| 커튼 | softly blurred neutral curtains |
+| 창가 | softly blurred window-side interior |
+| 거실 | softly blurred minimalist living room |
+| 침실 | softly blurred tidy bedroom |
+| 카페 | softly blurred quiet cafe interior |
+| 도서관 | softly blurred library shelves |
+| 사무실 | softly blurred modern office interior |
+| 복도 | softly blurred clean indoor hallway |
+| 전시 공간 | softly blurred minimalist gallery interior |
+| 실내 식물 | softly blurred indoor plants |
+| 나무와 잎 | softly blurred green foliage |
+| 공원 | softly blurred quiet park |
+| 잔디밭 | softly blurred grassy field |
+| 정원 | softly blurred garden |
+| 숲길 | softly blurred forest path |
+| 해변 | softly blurred sandy beach |
+| 바다 | softly blurred ocean background |
+| 호숫가 | softly blurred lakeside background |
+| 산 풍경 | softly blurred distant mountains |
+| 도시 거리 | softly blurred quiet city street |
+| 건물 외벽 | softly blurred modern building facade |
+| 옥상 | softly blurred rooftop cityscape |
