@@ -71,10 +71,12 @@ test('portrait essentials lead every model and oversize extras are omitted as wh
       const identity = i === 0 ? /same person/i : i === 5 ? /selected character/i : /reference/i;
       assert.match(body.slice(0, 120), identity);
       assert.match(body, /natural skin/i);
-      assert.match(body, i === 0 ? /full face/i : /entire face in frame/i);
+      assert.match(body, i === 0 ? /face, forehead.*brows clear/i : /entire face in frame/i);
       assert.match(body, /forehead.*brows/i);
       const label = await row.locator('.variant .small').nth(i).innerText();
-      assert.match(label, /공통 추가 지시.*추가 촬영 조건.*의상/);
+      assert.match(label, /공통 추가 지시.*추가 촬영 조건/);
+      if (i === 0) assert.doesNotMatch(label, /의상/);
+      else assert.match(label, /의상/);
       assert.doesNotMatch(body, /OVERSIZE|xxxx|Preserve freckles|undefined|null/);
       assert.ok(body.length <= promptLimits[i], body);
     }
@@ -91,10 +93,10 @@ test('Midjourney keeps the ordered prefix and cuts all items after the first ove
   await page.locator('#count').fill('1');
   await generate(page);
   const initial = (await prompts(page))[0].split(' --')[0];
-  const wardrobe = await bucket(page, 2).locator('.choice:has(:checked) small').innerText();
-  const index = initial.indexOf(', ' + wardrobe);
-  assert.ok(index > 0, initial);
-  const essential = initial.slice(0, index);
+  const coastalLight = ', even coastal light';
+  assert.ok(initial.includes(coastalLight), initial);
+  const essential = initial.slice(0, initial.indexOf(coastalLight) + coastalLight.length);
+  assert.match(essential, /front view, black T-shirt/);
   assert.match(essential, /natural skin/);
   assert.match(essential, lighting);
   const custom = 'Custom detail '.padEnd(promptLimits[0] - essential.length - 2, 'x');
@@ -104,12 +106,12 @@ test('Midjourney keeps the ordered prefix and cuts all items after the first ove
   assert.equal((await prompts(page))[0], essential + ', ' + custom + ' --raw --s 0');
   const label = await page.locator('.variant .small').innerText();
   assert.match(label, /본문 160자/);
-  assert.match(label, /의상.*배경/);
+  assert.match(label, /생략한 항목.*배경/);
   await page.locator('#prefix').fill(custom + 'x\nShort cue');
   await page.locator('#suffix').fill('Short detail');
   await generate(page);
   assert.equal((await prompts(page))[0], essential + ' --raw --s 0');
-  assert.match(await page.locator('.variant .small').innerText(), /공통 추가 지시.*추가 촬영 조건.*의상.*배경.*시간대.*날씨/);
+  assert.match(await page.locator('.variant .small').innerText(), /공통 추가 지시.*추가 촬영 조건.*배경.*시간대.*날씨/);
 });
 
 test('first batch makes Midjourney prompts for a Soul ID dataset', async t => {
@@ -122,18 +124,38 @@ test('first batch makes Midjourney prompts for a Soul ID dataset', async t => {
   for (const row of rows) {
     const body = row.replace(/ --raw --s 0$/, '');
     assert.ok(body.length <= promptLimits[0], body);
-    assert.match(body, /^Photorealistic .*same person/);
+    assert.match(body, /^Photorealistic, same person,/);
     assert.match(body, /natural skin.*face.*forehead.*brows/i);
   }
   assert.equal(rows.filter(row => row.includes('neutral, lips closed')).length, 16);
-  assert.equal(rows.filter(row => row.includes(framing[0])).length, 13);
+  assert.equal(rows.filter(row => /, (?:face )?close-up,/.test(row)).length, 13);
   assert.equal(rows.filter(row => row.includes(framing[1])).length, 6);
   assert.equal(rows.filter(row => row.includes('head-to-toe')).length, 1);
   for (const row of rows) {
     assert.doesNotMatch(row, /Higgsfield|Soul ID|selected character|Train new character|head-and-shoulders|soft even lighting/i);
-    assert.match(row, /same person.*full face.*--raw --s 0$/);
+    assert.match(row, /same person.*face, forehead.*--raw --s 0$/);
   }
   assert.match(await page.locator('#frameEstimate').innerText(), /13개.*6개.*전신 1개/);
+});
+
+test('Midjourney keeps the selected clothing colors and types before optional instructions', async t => {
+  const page = await openPage(t);
+  await selectOnly(page, 1, 0); // front view
+  await selectOnly(page, 2, 0); // white T-shirt
+  await bucket(page, 2).locator('.choice input').nth(13).check(); // light blue shirt
+  await page.locator('#count').fill('12');
+  await page.locator('.advanced summary').click();
+  await page.locator('#prefix').fill('Oversize detail '.repeat(100));
+  await page.locator('#recommend').click();
+  const bodies = (await prompts(page)).map(text => text.replace(/ --raw --s 0$/, ''));
+  assert.equal(bodies.filter(body => /same person, front view, white T-shirt,/.test(body)).length, 6);
+  assert.equal(bodies.filter(body => /same person, front view, light blue button-up shirt,/.test(body)).length, 6);
+  for (const body of bodies) {
+    assert.ok(body.length <= promptLimits[0], body);
+    assert.match(body, /natural skin/);
+    assert.match(body, /face.*forehead.*brows/i);
+    assert.doesNotMatch(body, /Oversize detail|\bblack\b/i);
+  }
 });
 
 test('random and recommended Midjourney input copies contain no forced aspect ratio or chaos', async t => {
@@ -220,7 +242,7 @@ test('Soul ID training reserves one uncropped full-height shot and keeps it when
   assert.equal(await full.locator('.prompt').count(), 6);
   for (const text of await full.locator('.prompt').allTextContents()) {
     assert.match(text, /head.to.toe/i);
-    assert.match(text, /entire face in frame|full face.*clear/i);
+    assert.match(text, /entire face in frame|face, forehead.*clear/i);
     assert.doesNotMatch(text, /waist-up|waist up|face close-up|undefined/i);
   }
   const first = await prompts(page);
@@ -588,7 +610,7 @@ test('existing style choices, empty background, count limits and expression vali
   const rows = await prompts(page);
   assert.equal(rows.length, 30);
   for (const row of rows) {
-    for (const part of ['long straight hair', 'front view', 'plain white crew-neck T-shirt', 'subtle closed-mouth smile']) assert.ok(row.includes(part));
+    for (const part of ['long straight hair', 'front view', 'white T-shirt', 'subtle closed-mouth smile']) assert.ok(row.includes(part));
     assert.doesNotMatch(row, weather);
     assert.doesNotMatch(row, time);
     assert.doesNotMatch(row, lighting);
@@ -670,6 +692,9 @@ test('all eligible poses are sampled evenly within each crop', async t => {
 
 test('custom fields, single and bulk copy, and the TXT download use the displayed text', async t => {
   const page = await openPage(t);
+  await selectOnly(page, 0, 0);
+  await selectOnly(page, 1, 0);
+  await selectOnly(page, 2, 16); // ivory blouse
   await selectOnly(page, 4);
   await page.locator('.advanced summary').click();
   await page.locator('#prefix').fill('custom portrait');
@@ -677,7 +702,7 @@ test('custom fields, single and bulk copy, and the TXT download use the displaye
   await page.locator('#params').fill('--ar 4:5');
   await generate(page);
   const rows = await prompts(page);
-  assert.ok(rows.every(row => row.startsWith('Photorealistic ') && row.includes('custom portrait, custom detail') && row.endsWith(' --ar 4:5')));
+  assert.ok(rows.every(row => row.startsWith('Photorealistic,') && row.includes('custom portrait, custom detail') && row.endsWith(' --ar 4:5')));
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
     value: {writeText: async value => { window.copiedText = value; }}
   }));
@@ -927,6 +952,9 @@ test('append preserves rows and copy marks while adding current settings to tota
   await page.locator('#mjNext').click();
   await page.locator('#ratio').fill('0');
   await page.locator('#frameRatio').fill('100');
+  await selectOnly(page, 0, 0);
+  await selectOnly(page, 1, 0);
+  await selectOnly(page, 2, 16);
   await selectOnly(page, 4);
   await page.locator('.advanced summary').click();
   await page.locator('#prefix').fill('additional portrait');
@@ -935,7 +963,7 @@ test('append preserves rows and copy marks while adding current settings to tota
   const after = await prompts(page);
   assert.equal(after.length, 23);
   assert.deepEqual(after.slice(0, 20), before);
-  assert.ok(after.slice(20).every(text => text.startsWith('Photorealistic face close-up') && text.includes('additional portrait') && !text.includes('neutral, lips closed')));
+  assert.ok(after.slice(20).every(text => text.startsWith('Photorealistic,') && text.includes('close-up') && text.includes('additional portrait') && !text.includes('neutral, lips closed')));
   assert.equal(await page.locator('.copy.copied').count(), 20);
   assert.doesNotMatch(await page.locator('#copyArchive').textContent(), /✓/);
   assert.match(await page.locator('#info').innerText(), /장면 23개.*무표정 16개.*미세 표정 7개.*클로즈업 17개.*상반신 6개/);
@@ -1030,9 +1058,10 @@ test('model formats preserve custom text and omit unselected environment fields'
   await page.locator('#count').fill('1');
   await selectOnly(page, 0, 0);
   await selectOnly(page, 1, 0);
+  await selectOnly(page, 2, 16);
   await selectOnly(page, 4);
   await page.locator('.advanced summary').click();
-  const prefix = 'Preserve the asymmetry of the smile.';
+  const prefix = 'Keep the uneven smile.';
   await page.locator('#prefix').fill(prefix);
   await page.locator('#suffix').fill('Keep the tiny freckle.');
   await page.locator('#params').fill('--ar 4:5');

@@ -34,16 +34,16 @@ Fast를 선택하면 기존 목록과 추가 장면 모두 미드저니 출력 �
 
 | 모델 | 이 생성기의 출력 방식 | 공식 작성 가이드 |
 |---|---|---|
-| Midjourney | 실사 구도, 인물, 피부, 각도와 표정을 짧은 구절로 묘사합니다. 조명과 장면 정보는 본문 160자 안에서 우선순위대로 붙입니다. | [Midjourney Prompt Basics](https://docs.midjourney.com/hc/en-us/articles/32023408776205-Prompt-Basics) |
+| Midjourney | 실사 인물 → 얼굴 각도 → 의상 → 구도와 얼굴 묘사 순으로 짧게 씁니다. 선택한 의상 종류와 지정된 색상은 필수입니다. 조명과 장면 정보는 남은 글자 수에 맞춰 붙입니다. | [Midjourney Prompt Basics](https://docs.midjourney.com/hc/en-us/articles/32023408776205-Prompt-Basics) |
 | GPT Image | 어떤 인물의 실사 사진을 만들지 먼저 지시하고, 얼굴 묘사와 촬영 조건을 여러 줄로 정리합니다. | [OpenAI Image prompting](https://developers.openai.com/api/docs/guides/image-prompting) |
 | Gemini (Nano Banana) | 인물이 무엇을 입고 어떤 구도로 어디에서 촬영되는지 자연스러운 문단으로 묘사합니다. | [Google 이미지 생성 가이드](https://ai.google.dev/gemini-api/docs/image-generation) |
 | FLUX.2 | 실사 인물 사진의 구도와 얼굴 특징으로 시작하는 캡션을 작성합니다. | [Black Forest Labs FLUX.2 가이드](https://docs.bfl.ai/guides/prompting_guide_flux2) |
 | Stable Diffusion XL | 구도·표정·스타일·환경을 간결한 묘사로 묶어 긍정 프롬프트 입력란에 붙여넣을 수 있게 합니다. | [Stability AI SDXL 가이드](https://stability.ai/sdxl-aws-documentation) |
 | Higgsfield Soul 2.0 | Character에서 선택한 인물의 구도·의상·표정·장소를 영어 사진 묘사로 작성합니다. | [Higgsfield Soul 사용 안내](https://higgsfield.ai/creator-hub/help-center/ai-models/how-do-i-use-soul-to-generate-images) |
 
-**필수 항목**은 실사 사진·인물·구도 → 피부 질감과 얼굴 가시성 → 각도·표정 → 헤어 순으로 넣습니다. 학습용으로는 기준 인물과 헤어를 유지하고, Soul ID 후보에는 한 사람의 얼굴 전체가 가림 없이 보이도록 요청합니다.
+**필수 항목**은 실사 인물, 얼굴 각도·표정, 구도, 피부와 헤어입니다. 미드저니는 얼굴 각도 바로 뒤에 선택한 의상을 필수로 넣습니다. 학습용으로는 기준 인물을 지정하고, Soul ID 후보에는 가림 없이 얼굴이 보이도록 요청합니다.
 
-**비필수 항목**은 조명 → 공통 추가 지시 → 추가 촬영 조건 → 의상 → 포즈 → 배경 → 시간대 → 날씨 순으로 붙입니다. 추가 지시는 중요한 순서대로 한 줄에 하나씩 쓰세요. 다음 문구가 본문 한도를 넘으면 그 문구부터 뒤에 있는 항목을 모두 생략합니다. 결과에 글자 수와 생략한 항목을 표시합니다.
+**비필수 항목**은 조명 → 공통 추가 지시 → 추가 촬영 조건 → 포즈 → 배경 → 시간대 → 날씨 순으로 붙입니다. 다른 모델에서는 의상이 추가 촬영 조건 다음에 옵니다. 추가 지시는 중요한 순서대로 한 줄에 하나씩 쓰세요. 다음 문구가 본문 한도를 넘으면 그 문구부터 뒤에 있는 항목을 모두 생략합니다. 결과에 글자 수와 생략한 항목을 표시합니다.
 
 생성기의 본문 한도는 **Midjourney 160자, GPT Image·Gemini 460자, FLUX.2 400자, SDXL·Soul 2.0 360자**입니다. 미드저니 파라미터는 끝에 별도로 붙습니다.
 

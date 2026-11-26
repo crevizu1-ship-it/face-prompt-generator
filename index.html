@@ -387,8 +387,8 @@ const joinPhrases = parts => parts.filter(Boolean).join(', ');
 const sentence = text => text && (/[.!?]$/.test(text) ? text : text + '.');
 const withArticle = text => (/^[aeiou]/i.test(text) ? 'an ' : 'a ') + text;
 
-function midjourneyRequired(shot, options) {
-  const {frame, angle, expression, hair} = shot;
+function midjourneyRequired(shot, options, limit) {
+  const {frame, angle, expression, hair, outfit} = shot;
   const crop = frame === fullHeight ? 'head-to-toe' : frame.crop;
   const view = angle.en
     .replace('straight-on front view, head upright', 'front view')
@@ -410,14 +410,25 @@ function midjourneyRequired(shot, options) {
   const hairstyle = hair === sweptHair
     ? (options.soulTraining ? 'full face, forehead and brows clear' : 'forehead and brows clear')
     : joinPhrases([visibility, hair === referenceHair ? 'same hair' : hair.en]);
-  return [
-    'Photorealistic ' + crop,
-    options.recommended && 'same person',
-    'natural skin',
-    view,
-    face,
-    hairstyle,
-  ];
+  const wardrobe = outfit.en
+    .replace(/^(?:plain|simple|casual) /, '')
+    .replace(' crew-neck ', ' ')
+    .replace('zip-up hoodie', 'zip hoodie')
+    .replace(' over a plain top', '');
+  const subject = options.recommended ? 'Photorealistic, same person' : 'Photorealistic';
+  const required = [subject, view, wardrobe, crop, 'natural skin', face, hairstyle];
+  if (joinPhrases(required).length <= limit) return required;
+
+  const shortView = view.replace(/^front view, /, 'front, ')
+    .replace(/ slightly\b/, '').replace('near-profile view', 'near-profile');
+  const shortFace = face.replace(/\b(?:slightly|subtly|subtle|gently|faint|soft) /g, '')
+    .replace(/ expression$/, '').replace('upturned mouth corners', 'upturned lips')
+    .replace('closed-mouth smile', 'closed smile');
+  const shortHair = hairstyle.replace('full face, forehead and brows clear', 'face, forehead, brows clear')
+    .replace('full face clear', 'clear face');
+  const compactRequired = [subject, shortView, wardrobe, crop, 'natural skin', shortFace, shortHair];
+  if (frame === closeUp && joinPhrases(compactRequired).length > limit) compactRequired[3] = 'close-up';
+  return compactRequired;
 }
 
 // Editorial limits for each prompt body. Midjourney parameters are appended separately.
@@ -440,7 +451,7 @@ function renderPrompt(name, shot, options) {
   const face = expression === neutral ? 'neutral expression, closed lips' : expression.en.replace('very subtle ', 'subtle ');
   const visibility = options.soulTraining ? (compact ? 'solo, entire face in frame, unobstructed' : 'single subject, entire face in frame and unobstructed') : '';
   const skin = compact ? 'natural skin texture' : 'natural skin texture, fine pores';
-  const required = midjourney ? midjourneyRequired(shot, options) : [
+  const required = midjourney ? midjourneyRequired(shot, options, format.limit) : [
     format.intro(frame, subject),
     joinPhrases([skin, visibility]),
     joinPhrases([angle.en, face]),
@@ -457,7 +468,7 @@ function renderPrompt(name, shot, options) {
     ['조명', light && (compact ? light : 'Use ' + light)],
     ...options.prefix.split('\n').map(line => ['공통 추가 지시', line.trim()]),
     ...options.suffix.split('\n').map(line => ['추가 촬영 조건', line.trim()]),
-    ['의상', compact ? outfit.en : 'The subject wears ' + withArticle(outfit.en)],
+    ['의상', !midjourney && (compact ? outfit.en : 'The subject wears ' + withArticle(outfit.en))],
     ['포즈', shot.bodyPose && fragment(shot.bodyPose)],
     ['배경', backdrop && (compact ? backdrop : 'The setting is ' + backdrop)],
     ['시간대', context.time && fragment(context.time.en)],
