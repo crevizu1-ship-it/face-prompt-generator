@@ -65,6 +65,56 @@ test('first batch has 16 neutral expressions and 14 face close-ups in 20 prompts
   assert.match(await page.locator('#frameEstimate').innerText(), /14개.*6개/);
 });
 
+test('Clean empties a recommended list and keeps selections for a new numbered list', async t => {
+  const page = await openPage(t);
+  const change = page.locator('#listChange');
+  assert.match(await change.innerText(), /목록 #1.*새로 생성/);
+  await selectOnly(page, 0, 0);
+  await model(page, 'GPT Image').check();
+  await page.locator('#frameRatio').fill('100');
+  await page.locator('#count').fill('3');
+  await page.locator('#recommend').click();
+  assert.match(await change.innerText(), /목록 #2.*추천 장면 3개 새로 생성/);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async () => {}}}));
+  await page.locator('#copyAll').click();
+  assert.equal(await page.locator('.copy.copied').count(), 6);
+  await page.locator('#appendCount').fill('2');
+  await page.locator('#append').click();
+  assert.match(await change.innerText(), /목록 #2.*4–5번 추가/);
+  await page.getByRole('button', {name:/목록 비우기.*Clean/}).click();
+  assert.equal(await page.locator('.result-row').count(), 0);
+  assert.match(await change.innerText(), /목록을 비웠습니다/);
+  assert.equal(await page.locator('#info').innerText(), '');
+  for (const id of ['clean', 'copyAll', 'save', 'append']) assert.equal(await page.locator('#' + id).isDisabled(), true);
+  for (const id of ['mjTools', 'referenceHelp']) assert.equal(await page.locator('#' + id).isVisible(), false);
+  assert.equal(await page.locator('#copyAll').innerText(), '전체 복사');
+  assert.equal(await page.locator('#appendCount').inputValue(), '2');
+  assert.equal(await model(page, 'GPT Image').isChecked(), true);
+  assert.equal(await bucket(page, 0).locator(':checked').count(), 1);
+  await generate(page);
+  assert.match(await change.innerText(), /목록 #3.*랜덤 장면 3개 새로 생성/);
+  assert.equal(await page.locator('.result-row').first().locator(':scope > .muted').innerText(), '01');
+  assert.equal(await page.locator('.copy.copied').count(), 0);
+  assert.equal(await page.locator('.copy').count(), 6);
+  assert.match(await page.locator('#info').innerText(), /얼굴 클로즈업 3개/);
+});
+
+test('a pending bundle copy cannot block or mark a new list after Clean', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{
+    writeText:() => new Promise(resolve => { (window.pendingCopies ??= []).push(resolve); }),
+  }}));
+  await page.locator('#mjNext').click();
+  await page.locator('#clean').click();
+  await generate(page);
+  await page.locator('#mjNext').click();
+  await page.evaluate(() => window.pendingCopies[0]());
+  assert.equal(await page.locator('#mjNext').isDisabled(), true);
+  assert.equal(await page.locator('.copy.copied').count(), 0);
+  await page.evaluate(() => window.pendingCopies[1]());
+  assert.equal(await page.locator('.copy.copied').count(), 4);
+});
+
 test('recommended generation uses the reference and balanced views across all five models', async t => {
   const page = await openPage(t);
   for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL']) await model(page, name).check();
