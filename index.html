@@ -95,17 +95,20 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
 <section>
   <div class="result-head">
     <div><h2>04 · 생성 결과</h2><p id="listChange" class="list-change" role="status"></p><p class="muted" id="listWorkflow"></p><p class="muted" id="info"></p></div>
-    <div class="actions"><button id="copyAll">전체 복사</button><button id="save">TXT 저장</button><button id="clean">목록 비우기 (Clean)</button></div>
+    <div class="actions"><button id="save">TXT 저장</button><button id="clean">목록 비우기 (Clean)</button></div>
   </div>
-  <div class="mj-tools" id="mjTools" hidden>
-    <div class="actions">
-      <button id="mjNext" class="mj-input" aria-describedby="mjHelp"></button><span id="mjProgress" class="muted"></span>
-      <a href="https://www.midjourney.com/imagine" target="_blank" rel="noopener noreferrer">미드저니 열기 ↗</a>
+  <div class="mj-tools" id="inputTools" hidden>
+    <div id="mjTools" hidden>
+      <div class="actions">
+        <button id="mjNext" class="mj-input" aria-describedby="mjHelp"></button><span id="mjProgress" class="muted"></span>
+        <a href="https://www.midjourney.com/imagine" target="_blank" rel="noopener noreferrer">미드저니 열기 ↗</a>
+      </div>
+      <p class="muted" id="mjHelp"></p>
     </div>
-    <p class="muted" id="mjHelp"></p>
+    <div class="actions" id="singleInputs"></div>
     <details class="archive" id="archive"><summary>목록 보관용 복사</summary>
       <button id="copyArchive">보관용 텍스트 복사</button>
-      <span class="muted">선택한 모델의 모든 장면을 줄바꿈으로 구분해 복사합니다.</span>
+      <span class="muted">문서에 보관할 전체 목록을 복사합니다. 이미지 생성창에는 입력용 버튼을 사용하세요.</span>
     </details>
   </div>
   <div id="referenceHelp" class="reference-help" hidden>
@@ -515,10 +518,7 @@ function selectionCopyKey(models) {
 }
 
 function updateCopyMarks() {
-  const bulk = $('copyAll');
   const allCopied = copiedSelections.has(selectionCopyKey(selectedModels()));
-  bulk.classList.toggle('copied', allCopied);
-  bulk.textContent = allCopied ? '✓ 전체 복사됨' : '전체 복사';
   $('copyArchive').classList.toggle('copied', allCopied);
   $('copyArchive').textContent = allCopied ? '✓ 보관용 텍스트 복사됨' : '보관용 텍스트 복사';
   for (const button of $('results').querySelectorAll('.copy')) {
@@ -529,9 +529,10 @@ function updateCopyMarks() {
     button.setAttribute('aria-label', (Number(index) + 1) + '번 ' + model + (done ? ' 복사됨, 다시 복사' : ' 복사'));
   }
   updateMidjourneyControls();
+  updateSingleInputs();
 }
 
-async function copyAndMark(items, models, text, bulk = false) {
+async function copyAndMark(items, models, text, archive = false) {
   const batch = output;
   const selectionKey = selectionCopyKey(models);
   const ok = await copy(text);
@@ -540,14 +541,14 @@ async function copyAndMark(items, models, text, bulk = false) {
     $('status').textContent = '복사가 제한되어 있습니다. 결과를 선택해 복사하거나 TXT로 저장하세요.';
     return;
   }
-  const archive = bulk && models.includes('Midjourney');
   $('status').textContent = archive ? '보관용 목록을 복사했습니다.' : '복사 완료';
-  if (!archive) {
+  if (archive) {
+    if (items.length === output.length) copiedSelections.add(selectionKey);
+  } else {
     for (const item of items) {
       for (const name of models) item.copied.add(name);
     }
   }
-  if (bulk && items.length === output.length) copiedSelections.add(selectionKey);
   updateCopyMarks();
 }
 
@@ -562,10 +563,35 @@ function promptText(item, model) {
   return model === 'Midjourney' ? [body, midjourneyParameters(item)].filter(Boolean).join(' ') : body;
 }
 
-function copyPrompts(models, index) {
-  if (index === undefined) return copyAndMark(output.slice(), models, exportText(models), true);
-  const item = output[index];
-  return copyAndMark([item], models, promptText(item, models[0]));
+function copyScene(item, name) {
+  return copyAndMark([item], [name], promptText(item, name));
+}
+
+const pendingSingleCopies = new Map();
+function updateSingleInputs() {
+  const models = selectedModels();
+  for (const button of $('singleInputs').children) {
+    const name = button.value;
+    button.hidden = !models.includes(name);
+    if (button.hidden) continue;
+    const next = output.findIndex(item => !item.copied.has(name));
+    button.disabled = next < 0 || pendingSingleCopies.get(name) === output;
+    button.classList.toggle('copied', next < 0);
+    button.textContent = name + ' 입력용 · ' + (next < 0 ? '✓ 모두 복사됨' : (next + 1) + '번 장면 복사');
+  }
+}
+
+async function copyNextScene(name) {
+  const batch = output;
+  const next = batch.find(item => !item.copied.has(name));
+  if (!next || pendingSingleCopies.get(name) === batch) return;
+  pendingSingleCopies.set(name, batch);
+  updateSingleInputs();
+  try { await copyScene(next, name); }
+  finally {
+    if (pendingSingleCopies.get(name) === batch) pendingSingleCopies.delete(name);
+    updateSingleInputs();
+  }
 }
 
 const pendingBundleCopies = new WeakSet();
@@ -697,7 +723,7 @@ function renderResults(start = 0) {
   $('soulModelHelp').hidden = !models.includes(soulModel);
   $('photoReference').hidden = !models.some(name => name !== soulModel);
   $('mjReference').hidden = !models.includes('Midjourney');
-  $('copyAll').hidden = models.includes('Midjourney');
+  $('inputTools').hidden = !models.length || !output.length;
   const results = $('results');
   if (!start) results.replaceChildren();
   const target = Array.from($('trainingTarget').options).find(option => option.value === listMode);
@@ -705,7 +731,7 @@ function renderResults(start = 0) {
     ? '이미지 제작 · ' + models.join(', ') + (target ? ' / 학습 · ' + target.textContent : ' / 자유 랜덤') : '';
   $('status').textContent = models.length ? '' : '이미지 제작 툴을 하나 이상 선택하세요.';
   $('recommend').disabled = $('generate').disabled = !models.length;
-  $('copyAll').disabled = $('save').disabled = !models.length || !output.length;
+  $('copyArchive').disabled = $('save').disabled = !models.length || !output.length;
   $('clean').disabled = !output.length;
   $('append').disabled = !models.length || !output.length;
   if (!models.length) {
@@ -724,7 +750,7 @@ function renderResults(start = 0) {
       label.append(make('span','model-name',name), make('span','muted',' · 본문 ' + prose.trim().split(/\s+/).length + '단어'));
       button.dataset.index = i;
       button.dataset.model = name;
-      button.onclick = () => copyPrompts([name], i);
+      button.onclick = () => copyScene(item, name);
       variant.append(label, make('div','prompt',text), button);
       body.append(variant);
     }
@@ -753,6 +779,12 @@ for (const name of Object.keys(formatters)) {
   checkbox.onchange = () => { syncGenerationControls(); renderResults(); };
   label.append(checkbox, ' ' + name);
   $('models').append(label);
+  if (name !== 'Midjourney') {
+    const button = make('button', 'mj-input');
+    button.value = name;
+    button.onclick = () => copyNextScene(name);
+    $('singleInputs').append(button);
+  }
 }
 $('frameRatio').oninput = estimate;
 $('generate').onclick = () => generate(false, 'random');
@@ -765,8 +797,10 @@ for (const id of ['count', 'appendCount']) {
 }
 $('append').onclick = () => generate(true, listMode);
 $('clean').onclick = clearResults;
-$('copyAll').onclick = () => copyPrompts(selectedModels());
-$('copyArchive').onclick = () => copyPrompts(selectedModels());
+$('copyArchive').onclick = () => {
+  const models = selectedModels();
+  return copyAndMark(output.slice(), models, exportText(models), true);
+};
 $('mjCopyMode').onchange = () => {
   const wasFast = !$('fastHint').hidden;
   const start = $('mjCopyMode').selectedOptions[0].dataset.fastStart;

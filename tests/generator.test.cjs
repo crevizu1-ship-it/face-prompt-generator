@@ -113,9 +113,9 @@ test('Clean empties a recommended list and keeps selections for a new numbered l
   assert.equal(await page.locator('#info').innerText(), '');
   assert.equal(await page.locator('#listWorkflow').innerText(), '');
   assert.equal(await page.locator('#trainingTarget').inputValue(), 'recommended');
-  for (const id of ['clean', 'copyAll', 'save', 'append']) assert.equal(await page.locator('#' + id).isDisabled(), true);
+  for (const id of ['clean', 'copyArchive', 'save', 'append']) assert.equal(await page.locator('#' + id).isDisabled(), true);
   for (const id of ['mjTools', 'referenceHelp']) assert.equal(await page.locator('#' + id).isVisible(), false);
-  assert.equal(await page.locator('#copyAll').innerText(), '전체 복사');
+  assert.equal(await page.locator('#inputTools').isVisible(), false);
   assert.equal(await page.locator('#appendCount').inputValue(), '2');
   assert.equal(await model(page, 'GPT Image').isChecked(), true);
   assert.equal(await bucket(page, 0).locator(':checked').count(), 1);
@@ -192,8 +192,30 @@ test('a trained Soul character gets its own copyable prompt without an extra ima
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async text => { window.copiedText = text; }}}));
   await page.locator('.copy').first().click();
   assert.equal(await page.evaluate(() => window.copiedText), texts[0]);
-  await page.locator('#copyAll').click();
-  assert.equal(await page.evaluate(() => window.copiedText), texts.join('\n\n'));
+  await page.getByRole('button', {name:/^Higgsfield Soul 2.0 입력용/}).click();
+  assert.equal(await page.evaluate(() => window.copiedText), texts[1]);
+});
+
+test('the primary Soul input action copies one of twenty scenes, then advances', async t => {
+  const page = await openPage(t);
+  await model(page, 'Higgsfield Soul 2.0').check();
+  await model(page, 'Midjourney').uncheck();
+  const scenes = await prompts(page);
+  assert.equal(scenes.length, 20);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+    value:{writeText:async text => { window.copiedText = text; }},
+  }));
+  const next = page.getByRole('button', {name:/^전체 복사$|^Higgsfield Soul 2.0 입력용/}).first();
+  for (const [i, scene] of scenes.entries()) {
+    await next.click();
+    assert.equal(await page.evaluate(() => window.copiedText), scene);
+    assert.equal(await page.locator('.copy.copied').count(), i + 1);
+  }
+  assert.equal(await next.isDisabled(), true);
+  await page.locator('#appendCount').fill('1');
+  await page.locator('#append').click();
+  await next.click();
+  assert.equal(await page.evaluate(() => window.copiedText), (await prompts(page))[20]);
 });
 
 test('recommended generation uses the reference and balanced views across all five reference-image models', async t => {
@@ -594,16 +616,19 @@ test('copy checkmarks track the copied scene and model, bulk selection, and new 
   await model(page, 'Gemini (Nano Banana)').check();
   await model(page, 'Midjourney').uncheck();
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async () => {}}}));
-  const buttons = page.locator('.copy'), bulk = page.locator('#copyAll');
+  const buttons = page.locator('.copy'), bulk = page.locator('#copyArchive');
   await buttons.first().click();
   assert.match(await buttons.first().innerText(), /✓/);
   assert.doesNotMatch(await buttons.nth(1).innerText(), /✓/);
   await model(page, 'FLUX.2').check();
   assert.match(await buttons.first().innerText(), /✓/);
   assert.doesNotMatch(await buttons.nth(1).innerText(), /✓/);
+  await page.locator('#archive summary').click();
   await bulk.click();
   assert.match(await bulk.innerText(), /✓/);
-  assert.ok((await buttons.allTextContents()).every(label => label.includes('✓')));
+  assert.equal(await page.locator('.copy.copied').count(), 1);
+  assert.match(await page.getByRole('button', {name:/^FLUX.2 입력용/}).innerText(), /1번 장면/);
+  assert.match(await page.getByRole('button', {name:/^Gemini .*입력용/}).innerText(), /2번 장면/);
   await model(page, 'Stable Diffusion XL').check();
   assert.doesNotMatch(await bulk.innerText(), /✓/);
   assert.doesNotMatch(await buttons.nth(2).innerText(), /✓/);
@@ -631,7 +656,7 @@ test('denied copy stays unmarked, fallback success is marked and late success ca
   await generate(page);
   await page.evaluate(() => window.finishCopy());
   assert.doesNotMatch(await button.innerText(), /✓/);
-  assert.doesNotMatch(await page.locator('#copyAll').innerText(), /✓/);
+  assert.doesNotMatch(await page.locator('#copyArchive').textContent(), /✓/);
 });
 
 test('controls and results fit mobile and desktop in both color schemes', async t => {
@@ -690,7 +715,7 @@ test('the main Midjourney action pastes one permutation and archiving never adva
   }));
   const action = page.getByRole('button', {name:/미드저니 입력용 묶음 복사/});
   assert.equal(await action.isVisible(), true);
-  assert.equal(await page.locator('#copyAll').isVisible(), false);
+  assert.equal(await page.locator('#singleInputs button:visible').count(), 0);
   assert.equal(await page.locator('#copyArchive').isVisible(), false);
   await model(page, 'GPT Image').check();
   await page.locator('#archive summary').click();
@@ -706,7 +731,7 @@ test('the main Midjourney action pastes one permutation and archiving never adva
   assert.doesNotMatch(text, /GPT Image|\[01/);
   assert.equal(await page.locator('#mjProgress').innerText(), '4 / 20개 복사됨');
   await model(page, 'Midjourney').uncheck();
-  assert.equal(await page.locator('#copyAll').isVisible(), true);
+  assert.equal(await page.getByRole('button', {name:/^GPT Image 입력용/}).isVisible(), true);
   assert.equal(await action.isVisible(), false);
 });
 
@@ -804,7 +829,7 @@ test('six model formats share the current scene, work offline and export by mode
   assert.equal(await readFile(await (await event).path(), 'utf8'), exported.join('\n\n'));
   for (const name of models) await model(page, name).uncheck();
   assert.equal((await prompts(page)).length, 0);
-  assert.ok(await page.locator('#copyAll').isDisabled());
+  assert.ok(await page.locator('#copyArchive').isDisabled());
   await model(page, 'Midjourney').check();
   assert.deepEqual(await prompts(page), firstPass);
 });
@@ -828,7 +853,7 @@ test('append preserves rows and copy marks while adding current settings to tota
   assert.deepEqual(after.slice(0, 20), before);
   assert.ok(after.slice(20).every(text => text.startsWith('additional portrait, face close-up') && !text.includes('neutral expression')));
   assert.equal(await page.locator('.copy.copied').count(), 20);
-  assert.doesNotMatch(await page.locator('#copyAll').innerText(), /✓/);
+  assert.doesNotMatch(await page.locator('#copyArchive').textContent(), /✓/);
   assert.match(await page.locator('#info').innerText(), /장면 23개.*무표정 16개.*미세 표정 7개.*클로즈업 17개.*상반신 6개/);
   assert.equal(await page.locator('.result-row').last().locator(':scope > .muted').innerText(), '23');
   await model(page, 'FLUX.2').check();
@@ -900,18 +925,19 @@ test('appended scenes keep their own Midjourney parameters and fresh generation 
   assert.equal(await page.locator('.copy.copied').count(), 0);
 });
 
-test('bulk copy started before append only marks the scenes actually copied', async t => {
+test('archiving before append leaves input scenes available and the expanded archive unmarked', async t => {
   const page = await openPage(t);
   await model(page, 'GPT Image').check();
   await model(page, 'Midjourney').uncheck();
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:() => new Promise(resolve => { window.finishCopy = resolve; })}}));
-  await page.locator('#copyAll').click();
+  await page.locator('#archive summary').click();
+  await page.locator('#copyArchive').click();
   await page.locator('#appendCount').fill('1');
   await page.locator('#append').click();
   await page.evaluate(() => window.finishCopy());
-  assert.equal(await page.locator('.copy.copied').count(), 20);
+  assert.equal(await page.locator('.copy.copied').count(), 0);
   assert.doesNotMatch(await page.locator('.copy').last().innerText(), /✓/);
-  assert.doesNotMatch(await page.locator('#copyAll').innerText(), /✓/);
+  assert.doesNotMatch(await page.locator('#copyArchive').innerText(), /✓/);
 });
 
 test('model formats preserve custom text and omit unselected environment fields', async t => {
