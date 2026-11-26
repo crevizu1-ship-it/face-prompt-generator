@@ -190,7 +190,7 @@ test('all eight independent switch settings reach the rendered prompt', async t 
 test('existing style choices, empty background, count limits and expression validation', async t => {
   const page = await openPage(t);
   const selected = await page.locator('#libraries details').evaluateAll(groups => groups.map(g => g.querySelectorAll(':checked').length));
-  assert.deepEqual(selected, [65, 34, 60, 20, 40]);
+  assert.deepEqual(selected, [65, 34, 60, 20, 40, 12]);
   for (let i = 0; i < 4; i++) await selectOnly(page, i, 0);
   await selectOnly(page, 4);
   await page.locator('#ratio').fill('0');
@@ -221,6 +221,56 @@ test('existing style choices, empty background, count limits and expression vali
   assert.match(await page.locator('#status').innerText(), /하나 이상/);
   await bucket(page, 0).getByRole('button', {name: '전체 선택'}).click();
   assert.equal(await bucket(page, 0).locator(':checked').count(), 65);
+});
+
+test('the chosen body pose follows the crop and matches across all five model prompts', async t => {
+  const page = await openPage(t);
+  const group = page.locator('#libraries details').filter({has:page.locator('summary', {hasText:'포즈'})});
+  await group.locator('summary').click();
+  await group.getByRole('button', {name:'전체 해제'}).click();
+  const folded = group.getByRole('checkbox', {name:/가볍게 팔짱 끼기/});
+  await folded.check();
+  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL']) await model(page, name).check();
+  await generate(page);
+  const rows = page.locator('.result-row');
+  const before = await prompts(page);
+  for (let i = 0; i < 20; i++) {
+    const tags = await rows.nth(i).locator('.tagline').innerText();
+    const upper = tags.includes('상반신');
+    assert.equal(tags.includes('가볍게 팔짱 끼기'), upper);
+    assert.ok(before.slice(i * 5, i * 5 + 5).every(text => text.toLowerCase().includes('arms loosely folded') === upper));
+  }
+  await folded.uncheck();
+  await group.getByRole('checkbox', {name:/어깨에 힘 빼기/}).check();
+  await page.locator('#appendCount').fill('4');
+  await page.locator('#append').click();
+  const appended = await prompts(page);
+  assert.deepEqual(appended.slice(0, 100), before);
+  assert.equal(appended.length, 120);
+  assert.ok(appended.slice(100).every(text => /relaxed shoulders/i.test(text)));
+  await group.getByRole('button', {name:'전체 해제'}).click();
+  await generate(page);
+  assert.deepEqual(await rows.count(), 20);
+  assert.ok((await prompts(page)).every(text => !/relaxed shoulders|arms loosely folded|undefined|null/i.test(text)));
+  assert.equal(await page.locator('#status').innerText(), '');
+  await group.getByRole('button', {name:'전체 선택'}).click();
+  assert.equal(await group.locator(':checked').count(), 12);
+});
+
+test('all eligible poses are sampled evenly within each crop', async t => {
+  const page = await openPage(t);
+  const group = page.locator('#libraries details').filter({has:page.locator('summary', {hasText:'포즈'})});
+  await group.locator('summary').click();
+  const phrases = await group.locator('.choice small').allTextContents();
+  for (const [ratio, poolSize] of [[100, 6], [0, 12]]) {
+    await page.locator('#frameRatio').fill(String(ratio));
+    await page.locator('#count').fill('24');
+    await generate(page);
+    const texts = await prompts(page);
+    const hits = phrases.map(phrase => texts.filter(text => text.includes(phrase)).length);
+    assert.equal(hits.filter(count => count > 0).length, poolSize);
+    assert.ok(hits.every(count => count === 0 || count === 24 / poolSize));
+  }
 });
 
 test('custom fields, single and bulk copy, and the TXT download use the displayed text', async t => {
