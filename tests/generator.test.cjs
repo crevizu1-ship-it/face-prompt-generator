@@ -65,6 +65,65 @@ test('first batch has 16 neutral expressions and 14 face close-ups in 20 prompts
   assert.match(await page.locator('#frameEstimate').innerText(), /14개.*6개/);
 });
 
+test('model, plan and scene count appear between the style library and generate button on both layouts', async t => {
+  const page = await openPage(t);
+  assert.deepEqual(await page.locator('main h2').allTextContents(), [
+    '01 · 생성 설정', '02 · 스타일 라이브러리', '03 · 생성 모델', '04 · 생성 결과',
+  ]);
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({width, height:800});
+    const selectors = ['#libraries', '#models', '#mjCopyMode', '#count', '#generate', '.result-head', '#mjNext', '#results'];
+    let previousBottom = 0;
+    for (const selector of selectors) {
+      const box = await page.locator(selector).boundingBox();
+      assert.ok(box && box.y >= previousBottom - 1, selector + ' at width ' + width);
+      previousBottom = box.y + box.height;
+    }
+  }
+});
+
+test('Pro/Mega sizes new and appended batches in units of forty without altering existing scenes', async t => {
+  const page = await openPage(t);
+  const count = page.locator('#count'), appendCount = page.locator('#appendCount');
+  const initial = await prompts(page);
+  await page.locator('#mjCopyMode').selectOption('40');
+  assert.deepEqual(await prompts(page), initial);
+  for (const input of [count, appendCount]) {
+    assert.equal(await input.inputValue(), '40');
+    assert.equal(await input.getAttribute('step'), '40');
+    assert.equal(await input.getAttribute('min'), '40');
+  }
+  assert.deepEqual(await page.locator('[data-count]').allTextContents(), ['40', '80', '120', '160', '200']);
+  assert.match(await page.locator('#estimate').innerText(), /무표정 32개/);
+  await page.locator('[data-count="120"]').click();
+  assert.equal(await count.inputValue(), '120');
+  await count.fill('41');
+  await generate(page);
+  assert.equal(await count.inputValue(), '80');
+  assert.equal((await prompts(page)).length, 80);
+  assert.match(await page.locator('#info').innerText(), /무표정 64개.*클로즈업 56개/);
+  await appendCount.fill('9');
+  await page.locator('#append').click();
+  assert.equal(await appendCount.inputValue(), '40');
+  assert.equal((await prompts(page)).length, 120);
+  await count.fill('201');
+  await generate(page);
+  assert.equal((await prompts(page)).length, 200);
+  await model(page, 'GPT Image').check();
+  await model(page, 'Midjourney').uncheck();
+  assert.equal(await page.locator('#mjCopyMode').isVisible(), false);
+  assert.deepEqual(await page.locator('[data-count]').allTextContents(), ['10', '30', '50', '100']);
+  await count.fill('7');
+  await generate(page);
+  assert.equal((await prompts(page)).length, 7);
+  await model(page, 'Midjourney').check();
+  assert.equal(await count.inputValue(), '40');
+  await page.locator('#mjCopyMode').selectOption('10');
+  await count.fill('11');
+  await generate(page);
+  assert.equal(await page.locator('.result-row').count(), 11);
+});
+
 test('framing ratios round per batch, show estimates, and allow either framing alone', async t => {
   const page = await openPage(t);
   await page.locator('#count').fill('7');

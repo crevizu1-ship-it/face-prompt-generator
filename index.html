@@ -6,7 +6,8 @@
 .model-picker{margin:12px 0 4px}.model-picker .actions{margin:4px 0}.result-row{grid-template-columns:24px minmax(0,1fr)}.variant{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start}.variant+.variant{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}.variant .copy{grid-column:2;grid-row:1 / span 2}.model-name{font-weight:700}.variant .prompt{grid-column:1}button:disabled{opacity:.5;cursor:default}
 button.copied{background:var(--soft);border-color:var(--accent);color:var(--accent)}
 .append-controls{align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--line)}.append-controls input[type=number]{width:76px}
-.mj-tools{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:8px}.mj-tools .actions{align-items:center;gap:8px}.mj-tools select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px;max-width:100%}.mj-tools a{color:var(--accent)}
+.mj-tools{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:8px}.mj-tools .actions{align-items:center;gap:8px}#mjCopyMode{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px;max-width:100%}.mj-tools a{color:var(--accent)}
+.model-setting{margin-top:12px}.model-setting label{display:block}.model-setting input[type=number]{width:86px}.model-setting .actions{align-items:center}.model-setting .quick{margin:0}.model-section .primary{margin-bottom:0}.controls .environment{grid-column:1/-1}@media(min-width:651px){.controls{grid-template-columns:1fr 1fr}}
 </style></head><body><main>
 <header><div class="eyebrow">FACE DATASET STUDIO</div><h1>얼굴 학습 프롬프트 생성기</h1><p class="muted">캐릭터 얼굴 학습용 모델별 랜덤 프롬프트 · <a id="offlineDownload" href="./index.html" download="face-prompt-generator.html" style="color:var(--accent)">오프라인용 HTML 저장</a></p></header>
 <div class="metrics" id="metrics"></div>
@@ -14,14 +15,14 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
   <h2>01 · 생성 설정</h2>
   <div class="controls">
     <div>
-      <label for="count">생성할 장면 수</label>
-      <input id="count" type="number" min="1" max="200" value="20">
-      <div class="quick"><button data-count="10">10</button><button data-count="30">30</button><button data-count="50">50</button><button data-count="100">100</button></div>
-    </div>
-    <div>
       <label for="ratio">무표정 비율 <span class="ratio" id="ratioLabel"></span></label>
       <input id="ratio" type="range" min="0" max="100" step="5" value="80" aria-describedby="estimate">
       <p id="estimate" class="muted"></p>
+    </div>
+    <div>
+      <label for="frameRatio">촬영 구도 · 얼굴 클로즈업 비율 <span class="ratio" id="frameLabel"></span></label>
+      <input id="frameRatio" type="range" min="0" max="100" value="70" aria-describedby="frameEstimate">
+      <p id="frameEstimate" class="muted"></p>
     </div>
     <fieldset class="environment">
       <legend>배경에 맞춰 자동 선택</legend>
@@ -32,11 +33,6 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
       </div>
       <p class="muted">날씨는 실외와 창가 배경에만 적용됩니다.</p>
     </fieldset>
-    <div>
-      <label for="frameRatio">촬영 구도 · 얼굴 클로즈업 비율 <span class="ratio" id="frameLabel"></span></label>
-      <input id="frameRatio" type="range" min="0" max="100" value="70" aria-describedby="frameEstimate">
-      <p id="frameEstimate" class="muted"></p>
-    </div>
   </div>
   <details class="advanced"><summary>공통 프롬프트 / 파라미터</summary>
     <div class="inside">
@@ -46,19 +42,33 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
     </div>
   </details>
 </section>
-<h2>02 · 스타일 라이브러리</h2><div id="libraries"></div><button id="generate" class="primary">랜덤 프롬프트 생성</button>
-<section>
-  <div class="result-head"><div><h2>03 · 생성 결과</h2><p class="muted" id="info"></p></div><div class="actions"><button id="copyAll">전체 복사</button><button id="save">TXT 저장</button></div></div>
-  <fieldset class="environment model-picker"><legend>비교할 이미지 모델</legend><div class="actions" id="models"></div></fieldset>
-  <div class="mj-tools" id="mjTools" hidden>
-    <label for="mjCopyMode">미드저니 복사 방식</label>
+<h2>02 · 스타일 라이브러리</h2><div id="libraries"></div>
+<section class="model-section">
+  <h2 id="modelHeading">03 · 생성 모델</h2>
+  <fieldset class="environment model-picker" aria-labelledby="modelHeading"><div class="actions" id="models"></div></fieldset>
+  <div class="model-setting" id="mjPlan" hidden>
+    <label for="mjCopyMode">미드저니 요금제 / 복사 방식</label>
+    <select id="mjCopyMode">
+      <option value="4">Basic · 최대 4개씩</option>
+      <option value="10">Standard · 최대 10개씩</option>
+      <option value="40">Pro / Mega · 최대 40개씩</option>
+      <option value="1">한 개씩 · Relax 포함</option>
+    </select>
+  </div>
+  <div class="model-setting">
+    <label for="count">생성할 장면 수</label>
     <div class="actions">
-      <select id="mjCopyMode">
-        <option value="4">Basic · 최대 4개씩</option>
-        <option value="10">Standard · 최대 10개씩</option>
-        <option value="40">Pro / Mega · 최대 40개씩</option>
-        <option value="1">한 개씩 · Relax 포함</option>
-      </select>
+      <input id="count" type="number" min="1" max="200" step="1" value="20">
+      <div id="countPresets" class="quick"></div>
+    </div>
+    <p id="countHint" class="muted" hidden>Pro / Mega에서는 생성·추가할 장면 수를 40의 배수로 올림합니다. 한 번에 최대 200개입니다.</p>
+  </div>
+  <button id="generate" class="primary">랜덤 프롬프트 생성</button>
+</section>
+<section>
+  <div class="result-head"><div><h2>04 · 생성 결과</h2><p class="muted" id="info"></p></div><div class="actions"><button id="copyAll">전체 복사</button><button id="save">TXT 저장</button></div></div>
+  <div class="mj-tools" id="mjTools" hidden>
+    <div class="actions">
       <button id="mjNext"></button><span id="mjProgress" class="muted"></span>
       <a href="https://www.midjourney.com/imagine" target="_blank" rel="noopener noreferrer">미드저니 열기 ↗</a>
     </div>
@@ -144,7 +154,34 @@ const make=(tag,cls,txt)=>{let e=document.createElement(tag);if(cls)e.className=
 const selected=g=>g.items.filter(x=>x.enabled);
 function metrics(){ $('metrics').replaceChildren();for(const g of library){const m=make('div','metric');m.append(make('strong','',selected(g).length+(g.name==='미세 표정'?1:0)),make('span','muted',g.name==='미세 표정'?'표정 (무표정 포함)':g.name));$('metrics').append(m);$('sel-'+g.id).textContent=selected(g).length+'/'+g.items.length+' 선택';}}
 for(const g of library){const d=make('details'),s=make('summary','',g.name),n=make('span','selection');n.id='sel-'+g.id;s.append(n);d.append(s);const body=make('div','inside'),actions=make('div','actions'),choices=make('div','choices'),checks=[];for(const item of g.items){const l=make('label','choice'),cb=make('input'),t=make('span','',item.ko);cb.type='checkbox';cb.checked=item.enabled;cb.onchange=()=>{item.enabled=cb.checked;metrics()};checks.push(cb);t.append(make('small','',item.en));l.append(cb,t);choices.append(l)}for(const [txt,val] of [['전체 선택',true],['전체 해제',false]]){const b=make('button','',txt);b.onclick=()=>{g.items.forEach((x,i)=>{x.enabled=val;checks[i].checked=val});metrics()};actions.append(b)}if(g.id===4)body.append(make('p','muted','단색·실내·실외 배경을 선택할 수 있습니다. 전체 해제하면 배경 프롬프트가 생략됩니다.'));body.append(actions,choices);d.append(body);$('libraries').append(d)}
-function count(control = 'count'){return Math.max(1,Math.min(200,Math.floor(Number($(control).value)||1)))}
+function count(control = 'count') {
+  const input = $(control);
+  const step = Number(input.step) || 1;
+  const value = Number(input.value) || 0;
+  const rounded = step === 1 ? Math.floor(value) : Math.ceil(value / step) * step;
+  return Math.max(Number(input.min), Math.min(Number(input.max), rounded));
+}
+
+function syncGenerationControls() {
+  const midjourney = selectedModels().includes('Midjourney');
+  const pro = midjourney && $('mjCopyMode').value === '40';
+  const step = pro ? 40 : 1;
+  $('mjPlan').hidden = !midjourney;
+  $('countHint').hidden = !pro;
+  for (const id of ['count', 'appendCount']) {
+    const input = $(id);
+    input.min = input.step = String(step);
+    input.value = count(id);
+  }
+  const presets = pro ? [40, 80, 120, 160, 200] : [10, 30, 50, 100];
+  $('countPresets').replaceChildren(...presets.map(value => {
+    const button = make('button', '', String(value));
+    button.dataset.count = value;
+    button.onclick = () => { $('count').value = value; estimate(); };
+    return button;
+  }));
+  estimate();
+}
 function quota(n, control) {
   return Math.round(n * Number($(control).value) / 100);
 }
@@ -391,7 +428,7 @@ function renderResults(start = 0) {
   const models = selectedModels();
   const results = $('results');
   if (!start) results.replaceChildren();
-  $('status').textContent = models.length ? '' : '비교할 이미지 모델을 하나 이상 선택하세요.';
+  $('status').textContent = models.length ? '' : '03 · 생성 모델에서 모델을 하나 이상 선택하세요.';
   $('copyAll').disabled = $('save').disabled = !models.length || !output.length;
   if (!models.length) {
     updateCopyMarks();
@@ -435,15 +472,20 @@ for (const name of Object.keys(formatters)) {
   checkbox.type = 'checkbox';
   checkbox.value = name;
   checkbox.checked = name === 'Midjourney';
-  checkbox.onchange = () => renderResults();
+  checkbox.onchange = () => { syncGenerationControls(); renderResults(); };
   label.append(checkbox, ' ' + name);
   $('models').append(label);
 }
 $('frameRatio').oninput = estimate;
-$('generate').onclick=() => generate();$('ratio').oninput=estimate;$('count').oninput=estimate;document.querySelectorAll('[data-count]').forEach(b=>b.onclick=()=>{$('count').value=b.dataset.count;estimate()});
+$('generate').onclick = () => generate();
+$('ratio').oninput = estimate;
+$('count').oninput = estimate;
+for (const id of ['count', 'appendCount']) {
+  $(id).onchange = () => { $(id).value = count(id); estimate(); };
+}
 $('append').onclick = () => generate(true);
 $('copyAll').onclick = () => copyPrompts(selectedModels());
-$('mjCopyMode').onchange = updateMidjourneyControls;
+$('mjCopyMode').onchange = () => { syncGenerationControls(); updateMidjourneyControls(); };
 $('mjNext').onclick = copyNextMidjourney;
 $('save').onclick = () => {
   const url = URL.createObjectURL(new Blob([exportText()], {type:'text/plain;charset=utf-8'}));
@@ -453,5 +495,5 @@ $('save').onclick = () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
-metrics(); estimate(); generate();
+metrics(); syncGenerationControls(); generate();
 </script></body></html>
