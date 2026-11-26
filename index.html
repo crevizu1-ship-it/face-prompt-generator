@@ -3,14 +3,15 @@
 <style>
 :root{color-scheme:light dark;--bg:#f5f6f9;--panel:#fff;--ink:#20242f;--muted:#687080;--line:#dfe3eb;--accent:#6452c7;--soft:#eeeafa}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 system-ui,sans-serif}main{max-width:1080px;margin:auto;padding:36px 20px}h1,h2,p{margin:0}h1{font-size:30px;letter-spacing:-1px;line-height:1.3}h2{font-size:16px}header{margin-bottom:24px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:2px;color:var(--accent)}.muted{color:var(--muted);font-size:12px}.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:20px}.metric,section,details{background:var(--panel);border:1px solid var(--line);border-radius:12px}.metric{padding:14px}.metric strong{display:block;font-size:26px}section{padding:20px;margin-bottom:15px}.controls{display:grid;grid-template-columns:1fr 2fr;gap:20px;margin-top:15px}label{font-weight:600}input,textarea,button{font:inherit;color:inherit}input[type=number],textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px}input[type=range]{width:100%;accent-color:var(--accent)}input[type=checkbox]{accent-color:var(--accent)}button{border:1px solid var(--line);border-radius:7px;padding:7px 12px;background:var(--panel);cursor:pointer}button:hover{border-color:var(--accent)}.quick,.actions{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.primary{background:var(--accent);color:white;font-weight:700;border:0;width:100%;padding:13px;margin:14px 0}.ratio{float:right;color:var(--accent);font-weight:800}details{margin:8px 0}summary{cursor:pointer;padding:12px 15px;font-weight:700}.selection{float:right;color:var(--muted);font-weight:400;font-size:12px}.inside{padding:0 14px 14px}.choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;max-height:270px;overflow:auto}.choice{display:flex;gap:7px;align-items:flex-start;border:1px solid var(--line);padding:7px;border-radius:6px;font-size:12px;font-weight:500}.choice small{display:block;color:var(--muted);font-weight:400}.choice input{margin-top:4px}.result-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.result-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;border-top:1px solid var(--line);padding:14px 0}.result-row:first-child{margin-top:12px}.tagline{font-size:11px;color:var(--accent);margin-bottom:4px}.prompt{overflow-wrap:anywhere;white-space:pre-wrap}.copy{align-self:start}.status{min-height:24px;color:var(--accent);font-size:12px}.small{font-size:12px}.advanced textarea{display:block;min-height:60px;margin:5px 0 10px}footer{margin-top:20px}.results{max-height:720px;overflow:auto}@media(max-width:650px){main{padding:20px 12px}h1{font-size:24px}.choices{grid-template-columns:repeat(2,minmax(0,1fr))} .metrics{gap:5px;grid-template-columns:repeat(3,minmax(0,1fr))}.metric{padding:8px}.metric strong{font-size:20px}.controls{grid-template-columns:1fr}.result-row{gap:5px}}@media(prefers-color-scheme:dark){:root{--bg:#16181e;--panel:#22252c;--ink:#f1f2f5;--muted:#a5aab6;--line:#373c48;--accent:#a99aff;--soft:#35304c}.primary{color:#181522}}
 .environment{border:0;padding:0;margin:0;min-width:0}.environment legend{padding:0;font-weight:600}.environment .actions{gap:6px 12px}.environment label{font-weight:500;white-space:nowrap}.controls{margin-bottom:15px}.derived{color:var(--muted);font-size:11px;margin-bottom:4px}
+.model-picker{margin:12px 0 4px}.model-picker .actions{margin:4px 0}.result-row{grid-template-columns:24px minmax(0,1fr)}.variant{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start}.variant+.variant{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}.variant .copy{grid-column:2;grid-row:1 / span 2}.model-name{font-weight:700}.variant .prompt{grid-column:1}button:disabled{opacity:.5;cursor:default}
 </style></head><body><main>
-<header><div class="eyebrow">FACE DATASET STUDIO</div><h1>얼굴 학습 프롬프트 생성기</h1><p class="muted">Midjourney · 캐릭터 얼굴 학습용 랜덤 프롬프트</p></header>
+<header><div class="eyebrow">FACE DATASET STUDIO</div><h1>얼굴 학습 프롬프트 생성기</h1><p class="muted">캐릭터 얼굴 학습용 모델별 랜덤 프롬프트 · <a id="offlineDownload" href="./index.html" download="face-prompt-generator.html" style="color:var(--accent)">오프라인용 HTML 저장</a></p></header>
 <div class="metrics" id="metrics"></div>
 <section>
   <h2>01 · 생성 설정</h2>
   <div class="controls">
     <div>
-      <label for="count">프롬프트 개수</label>
+      <label for="count">생성할 장면 수</label>
       <input id="count" type="number" min="1" max="200" value="20">
       <div class="quick"><button data-count="10">10</button><button data-count="30">30</button><button data-count="50">50</button><button data-count="100">100</button></div>
     </div>
@@ -43,7 +44,11 @@
   </details>
 </section>
 <h2>02 · 스타일 라이브러리</h2><div id="libraries"></div><button id="generate" class="primary">랜덤 프롬프트 생성</button>
-<section><div class="result-head"><div><h2>03 · 생성 결과</h2><p class="muted" id="info"></p></div><div class="actions"><button id="copyAll">전체 복사</button><button id="save">TXT 저장</button></div></div><p id="status" class="status" role="status" aria-live="polite"></p><div id="results" class="results"></div></section><footer class="muted">동일 인물 참조 이미지는 Midjourney에서 별도 적용하세요. 정확한 각도와 얼굴 일치 여부는 생성 후 검수해야 합니다.</footer></main>
+<section>
+  <div class="result-head"><div><h2>03 · 생성 결과</h2><p class="muted" id="info"></p></div><div class="actions"><button id="copyAll">전체 복사</button><button id="save">TXT 저장</button></div></div>
+  <fieldset class="environment model-picker"><legend>비교할 이미지 모델</legend><div class="actions" id="models"></div></fieldset>
+  <p id="status" class="status" role="status" aria-live="polite"></p><div id="results" class="results"></div>
+</section><footer class="muted">동일 인물 참조 이미지는 사용할 이미지 모델에 별도로 첨부하세요. 정확한 각도와 얼굴 일치 여부는 생성 후 검수해야 합니다.</footer></main>
 <script>
 const library=[{"id":0,"name":"헤어","items":[{"ko":"긴 생머리","en":"long straight hair","enabled":true},{"ko":"매끈한 장발","en":"sleek long straight hair","enabled":true},{"ko":"허리 길이 생머리","en":"waist-length straight hair","enabled":true},{"ko":"중간 길이 생머리","en":"medium-length straight hair","enabled":true},{"ko":"어깨 길이 생머리","en":"shoulder-length straight hair","enabled":true},{"ko":"긴 레이어드컷","en":"long layered hair","enabled":true},{"ko":"중간 레이어드컷","en":"medium layered hair","enabled":true},{"ko":"버터플라이컷","en":"butterfly haircut","enabled":true},{"ko":"허쉬컷","en":"soft shag haircut","enabled":true},{"ko":"울프컷","en":"wolf cut","enabled":true},{"ko":"샤기컷","en":"shag haircut","enabled":true},{"ko":"히메컷","en":"hime cut","enabled":true},{"ko":"긴 S컬","en":"long S-shaped waves","enabled":true},{"ko":"굵은 웨이브","en":"long loose waves","enabled":true},{"ko":"자연스러운 웨이브","en":"natural wavy hair","enabled":true},{"ko":"물결 웨이브","en":"mermaid waves","enabled":true},{"ko":"할리우드 웨이브","en":"Hollywood waves","enabled":true},{"ko":"비치 웨이브","en":"soft beach waves","enabled":true},{"ko":"잔웨이브","en":"fine wavy hair","enabled":true},{"ko":"히피펌","en":"loose spiral curls","enabled":true},{"ko":"풍성한 곱슬머리","en":"voluminous curly hair","enabled":true},{"ko":"C컬 단발","en":"inward-curled bob","enabled":true},{"ko":"C컬 중단발","en":"shoulder-length C-curl hair","enabled":true},{"ko":"칼단발","en":"sleek blunt bob","enabled":true},{"ko":"턱선 단발","en":"chin-length bob","enabled":true},{"ko":"롱보브","en":"long bob","enabled":true},{"ko":"웨이브 단발","en":"wavy bob","enabled":true},{"ko":"프렌치 보브","en":"French bob","enabled":true},{"ko":"레이어드 단발","en":"layered bob","enabled":true},{"ko":"숏컷","en":"short cropped hair","enabled":true},{"ko":"픽시컷","en":"pixie cut","enabled":true},{"ko":"긴 머리 5:5 가르마","en":"long hair with middle part","enabled":true},{"ko":"긴 머리 7:3 가르마","en":"long hair with deep side part","enabled":true},{"ko":"한쪽 귀 뒤로 넘긴 머리","en":"hair tucked behind one ear","enabled":true},{"ko":"양쪽 귀 뒤로 넘긴 머리","en":"hair tucked behind both ears","enabled":true},{"ko":"앞머리 없는 올백","en":"slicked-back hair","enabled":true},{"ko":"일자 앞머리 장발","en":"long hair with blunt bangs","enabled":true},{"ko":"시스루뱅 장발","en":"long hair with wispy bangs","enabled":true},{"ko":"커튼뱅 장발","en":"long hair with curtain bangs","enabled":true},{"ko":"사이드뱅 장발","en":"long hair with side-swept bangs","enabled":true},{"ko":"풀뱅 단발","en":"bob with full bangs","enabled":true},{"ko":"시스루뱅 단발","en":"bob with wispy bangs","enabled":true},{"ko":"짧은 처피뱅","en":"short choppy bangs","enabled":true},{"ko":"높은 포니테일","en":"high ponytail","enabled":true},{"ko":"낮은 포니테일","en":"low ponytail","enabled":true},{"ko":"중간 높이 포니테일","en":"mid-height ponytail","enabled":true},{"ko":"사이드 포니테일","en":"side ponytail","enabled":true},{"ko":"웨이브 포니테일","en":"wavy ponytail","enabled":true},{"ko":"버블 포니테일","en":"bubble ponytail","enabled":true},{"ko":"반묶음","en":"half-up half-down hair","enabled":true},{"ko":"반묶음 웨이브","en":"half-up half-down wavy hair","enabled":true},{"ko":"반묶음 번","en":"half-up bun","enabled":true},{"ko":"높은 번","en":"high bun","enabled":true},{"ko":"낮은 번","en":"low bun","enabled":true},{"ko":"깔끔한 번","en":"sleek bun","enabled":true},{"ko":"자연스러운 번","en":"loose messy bun","enabled":true},{"ko":"양쪽 번","en":"space buns","enabled":true},{"ko":"높은 양갈래","en":"high twin tails","enabled":true},{"ko":"낮은 양갈래","en":"low twin tails","enabled":true},{"ko":"양갈래 땋은 머리","en":"twin braids","enabled":true},{"ko":"한쪽 땋은 머리","en":"side braid","enabled":true},{"ko":"프렌치 브레이드","en":"French braid","enabled":true},{"ko":"더치 브레이드","en":"Dutch braid","enabled":true},{"ko":"피쉬테일 브레이드","en":"fishtail braid","enabled":true},{"ko":"뒤로 넘긴 웨이브","en":"swept-back wavy hair","enabled":true}]},{"id":1,"name":"머리 각도","items":[{"ko":"정면","en":"straight-on front view, head upright","enabled":true},{"ko":"왼쪽 살짝 회전","en":"head turned slightly left","enabled":true},{"ko":"오른쪽 살짝 회전","en":"head turned slightly right","enabled":true},{"ko":"왼쪽 3/4","en":"left three-quarter view","enabled":true},{"ko":"오른쪽 3/4","en":"right three-quarter view","enabled":true},{"ko":"왼쪽 측면에 가깝게","en":"left near-profile view","enabled":true},{"ko":"오른쪽 측면에 가깝게","en":"right near-profile view","enabled":true},{"ko":"완전 왼쪽 측면","en":"full left side profile","enabled":true},{"ko":"완전 오른쪽 측면","en":"full right side profile","enabled":true},{"ko":"정면 턱 살짝 위","en":"front view, chin slightly raised","enabled":true},{"ko":"정면 턱 위","en":"front view, chin raised","enabled":true},{"ko":"정면 턱 살짝 아래","en":"front view, chin slightly lowered","enabled":true},{"ko":"정면 턱 아래","en":"front view, chin lowered","enabled":true},{"ko":"정면 고개 깊게 아래","en":"front view, head bowed downward","enabled":true},{"ko":"왼쪽 사선 위","en":"left three-quarter view, chin raised","enabled":true},{"ko":"오른쪽 사선 위","en":"right three-quarter view, chin raised","enabled":true},{"ko":"왼쪽 사선 아래","en":"left three-quarter view, chin lowered","enabled":true},{"ko":"오른쪽 사선 아래","en":"right three-quarter view, chin lowered","enabled":true},{"ko":"왼쪽 측면 위","en":"left side profile, chin raised","enabled":true},{"ko":"오른쪽 측면 위","en":"right side profile, chin raised","enabled":true},{"ko":"왼쪽 측면 아래","en":"left side profile, chin lowered","enabled":true},{"ko":"오른쪽 측면 아래","en":"right side profile, chin lowered","enabled":true},{"ko":"정면 왼쪽 기울임","en":"front view, head tilted toward left shoulder","enabled":true},{"ko":"정면 오른쪽 기울임","en":"front view, head tilted toward right shoulder","enabled":true},{"ko":"왼쪽 사선 기울임","en":"left three-quarter view, gentle sideways head tilt","enabled":true},{"ko":"오른쪽 사선 기울임","en":"right three-quarter view, gentle sideways head tilt","enabled":true},{"ko":"왼쪽 어깨 너머","en":"looking back over left shoulder, face clearly visible","enabled":true},{"ko":"오른쪽 어깨 너머","en":"looking back over right shoulder, face clearly visible","enabled":true},{"ko":"살짝 높은 카메라","en":"slightly high-angle portrait, head upright","enabled":true},{"ko":"살짝 낮은 카메라","en":"slightly low-angle portrait, head upright","enabled":true},{"ko":"위에서 왼쪽 사선","en":"high-angle left three-quarter portrait","enabled":true},{"ko":"위에서 오른쪽 사선","en":"high-angle right three-quarter portrait","enabled":true},{"ko":"아래에서 왼쪽 사선","en":"low-angle left three-quarter portrait","enabled":true},{"ko":"아래에서 오른쪽 사선","en":"low-angle right three-quarter portrait","enabled":true}]},{"id":2,"name":"의상","items":[{"ko":"흰색 기본 티셔츠","en":"plain white crew-neck T-shirt","enabled":true},{"ko":"검은색 기본 티셔츠","en":"plain black crew-neck T-shirt","enabled":true},{"ko":"회색 티셔츠","en":"plain gray T-shirt","enabled":true},{"ko":"네이비 티셔츠","en":"navy blue T-shirt","enabled":true},{"ko":"베이지 티셔츠","en":"beige T-shirt","enabled":true},{"ko":"연분홍 티셔츠","en":"pale pink T-shirt","enabled":true},{"ko":"하늘색 티셔츠","en":"light blue T-shirt","enabled":true},{"ko":"스트라이프 티셔츠","en":"striped T-shirt","enabled":true},{"ko":"흰색 브이넥","en":"white V-neck T-shirt","enabled":true},{"ko":"검은색 브이넥","en":"black V-neck T-shirt","enabled":true},{"ko":"라운드넥 긴팔","en":"long-sleeved crew-neck shirt","enabled":true},{"ko":"흰색 셔츠","en":"white button-up shirt","enabled":true},{"ko":"검은색 셔츠","en":"black button-up shirt","enabled":true},{"ko":"하늘색 셔츠","en":"light blue button-up shirt","enabled":true},{"ko":"체크 셔츠","en":"plaid shirt","enabled":true},{"ko":"오버사이즈 셔츠","en":"oversized cotton shirt","enabled":true},{"ko":"아이보리 블라우스","en":"ivory blouse","enabled":true},{"ko":"검은색 블라우스","en":"black blouse","enabled":true},{"ko":"실크 블라우스","en":"silk blouse","enabled":true},{"ko":"라운드넥 니트","en":"crew-neck knit sweater","enabled":true},{"ko":"크림색 니트","en":"cream knit sweater","enabled":true},{"ko":"회색 니트","en":"gray knit sweater","enabled":true},{"ko":"검은색 니트","en":"black knit sweater","enabled":true},{"ko":"브이넥 니트","en":"V-neck sweater","enabled":true},{"ko":"터틀넥 니트","en":"black turtleneck sweater","enabled":true},{"ko":"아이보리 터틀넥","en":"ivory turtleneck sweater","enabled":true},{"ko":"목이 낮은 니트","en":"scoop-neck knit top","enabled":true},{"ko":"단추 카디건","en":"button-front cardigan","enabled":true},{"ko":"베이지 카디건","en":"beige cardigan","enabled":true},{"ko":"크롭 카디건","en":"cropped cardigan","enabled":true},{"ko":"흰색 민소매","en":"white sleeveless top","enabled":true},{"ko":"검은색 민소매","en":"black sleeveless top","enabled":true},{"ko":"골지 민소매","en":"ribbed tank top","enabled":true},{"ko":"스포츠 티셔츠","en":"athletic T-shirt","enabled":true},{"ko":"트레이닝 재킷","en":"zip-up track jacket","enabled":true},{"ko":"회색 맨투맨","en":"gray crew-neck sweatshirt","enabled":true},{"ko":"흰색 맨투맨","en":"white sweatshirt","enabled":true},{"ko":"후드티","en":"casual hoodie, hood down","enabled":true},{"ko":"검은 후드 집업","en":"black zip-up hoodie, hood down","enabled":true},{"ko":"청재킷","en":"blue denim jacket","enabled":true},{"ko":"검은 가죽 재킷","en":"black leather jacket","enabled":true},{"ko":"봄버 재킷","en":"bomber jacket","enabled":true},{"ko":"검은 블레이저","en":"black blazer over a plain top","enabled":true},{"ko":"베이지 블레이저","en":"beige blazer","enabled":true},{"ko":"트위드 재킷","en":"tweed jacket","enabled":true},{"ko":"트렌치코트","en":"light beige trench coat","enabled":true},{"ko":"울 코트","en":"wool coat","enabled":true},{"ko":"흰색 폴로셔츠","en":"white polo shirt","enabled":true},{"ko":"네이비 폴로셔츠","en":"navy polo shirt","enabled":true},{"ko":"오프숄더 니트","en":"off-shoulder knit top","enabled":true},{"ko":"스퀘어넥 상의","en":"square-neck top","enabled":true},{"ko":"검은색 심플 원피스","en":"simple black dress","enabled":true},{"ko":"꽃무늬 원피스","en":"subtle floral dress","enabled":true},{"ko":"아이보리 원피스","en":"simple ivory dress","enabled":true},{"ko":"흰색 크롭티","en":"plain white cropped T-shirt","enabled":true},{"ko":"검은색 크롭티","en":"plain black cropped T-shirt","enabled":true},{"ko":"데님 셔츠","en":"denim shirt","enabled":true},{"ko":"리넨 셔츠","en":"linen shirt","enabled":true},{"ko":"세일러칼라 블라우스","en":"sailor-collar blouse","enabled":true},{"ko":"새틴 셔츠","en":"satin shirt","enabled":true}]},{"id":3,"name":"미세 표정","items":[{"ko":"옅은 미소","en":"very subtle closed-mouth smile","enabled":true},{"ko":"미세한 미소","en":"faint smile","enabled":true},{"ko":"살짝 올라간 입꼬리","en":"slightly upturned mouth corners","enabled":true},{"ko":"부드러운 눈빛","en":"soft relaxed gaze","enabled":true},{"ko":"살짝 벌린 입술","en":"lips slightly parted","enabled":true},{"ko":"편안한 표정","en":"calm relaxed facial expression","enabled":true},{"ko":"살짝 생각하는 표정","en":"subtly thoughtful expression","enabled":true},{"ko":"약간 진지한 표정","en":"slightly serious expression","enabled":true},{"ko":"미세하게 놀란 표정","en":"very mildly surprised expression","enabled":true},{"ko":"한쪽 눈썹 살짝 올림","en":"one eyebrow slightly raised","enabled":true},{"ko":"양쪽 눈썹 살짝 올림","en":"eyebrows slightly raised","enabled":true},{"ko":"약간 궁금한 표정","en":"subtly curious expression","enabled":true},{"ko":"약간 걱정스러운 표정","en":"very subtle concerned expression","enabled":true},{"ko":"약간 슬픈 표정","en":"very subtle sad expression","enabled":true},{"ko":"미세하게 찌푸린 눈썹","en":"slightly furrowed brows","enabled":true},{"ko":"살짝 수줍은 미소","en":"faint shy closed-mouth smile","enabled":true},{"ko":"약간 자신감 있는 표정","en":"subtly confident expression","enabled":true},{"ko":"아주 옅은 한쪽 미소","en":"subtle asymmetric smile","enabled":true},{"ko":"미세한 집중 표정","en":"subtly focused expression","enabled":true},{"ko":"살짝 편안하게 감은 눈","en":"eyes gently closed","enabled":true}]},{"id":4,"name":"배경","items":[{"ko":"흰색 스튜디오","en":"plain white studio backdrop","enabled":true,"group":"studio"},{"ko":"밝은 회색 스튜디오","en":"plain light gray studio backdrop","enabled":true,"group":"studio"},{"ko":"중간 회색 스튜디오","en":"plain medium gray studio backdrop","enabled":true,"group":"studio"},{"ko":"차콜 스튜디오","en":"plain charcoal gray studio backdrop","enabled":true,"group":"studio"},{"ko":"검은색 스튜디오","en":"plain black studio backdrop","enabled":true,"group":"studio"},{"ko":"아이보리 스튜디오","en":"plain ivory studio backdrop","enabled":true,"group":"studio"},{"ko":"베이지 스튜디오","en":"plain beige studio backdrop","enabled":true,"group":"studio"},{"ko":"연분홍 스튜디오","en":"plain pale pink studio backdrop","enabled":true,"group":"studio"},{"ko":"연하늘색 스튜디오","en":"plain pale blue studio backdrop","enabled":true,"group":"studio"},{"ko":"세이지 그린 스튜디오","en":"plain muted sage green studio backdrop","enabled":true,"group":"studio"},{"ko":"연보라 스튜디오","en":"plain muted lavender studio backdrop","enabled":true,"group":"studio"},{"ko":"웜그레이 스튜디오","en":"plain warm gray studio backdrop","enabled":true,"group":"studio"},{"ko":"흐린 회색 그라데이션","en":"subtle gray gradient studio backdrop","enabled":true,"group":"studio"},{"ko":"흐린 베이지 그라데이션","en":"subtle beige gradient studio backdrop","enabled":true,"group":"studio"},{"ko":"흰 벽","en":"simple white interior wall","enabled":true,"group":"indoor"},{"ko":"콘크리트 벽","en":"plain concrete wall","enabled":true,"group":"indoor"},{"ko":"벽돌 벽","en":"softly blurred brick wall","enabled":true,"group":"indoor"},{"ko":"목재 벽","en":"softly blurred wooden wall","enabled":true,"group":"indoor"},{"ko":"커튼","en":"softly blurred neutral curtains","enabled":true,"group":"indoor"},{"ko":"창가","en":"softly blurred window-side interior","enabled":true,"group":"window"},{"ko":"거실","en":"softly blurred minimalist living room","enabled":true,"group":"indoor"},{"ko":"침실","en":"softly blurred tidy bedroom","enabled":true,"group":"indoor"},{"ko":"카페","en":"softly blurred quiet cafe interior","enabled":true,"group":"indoor"},{"ko":"도서관","en":"softly blurred library shelves","enabled":true,"group":"indoor"},{"ko":"사무실","en":"softly blurred modern office interior","enabled":true,"group":"indoor"},{"ko":"복도","en":"softly blurred clean indoor hallway","enabled":true,"group":"indoor"},{"ko":"전시 공간","en":"softly blurred minimalist gallery interior","enabled":true,"group":"indoor"},{"ko":"실내 식물","en":"softly blurred indoor plants","enabled":true,"group":"indoor"},{"ko":"나무와 잎","en":"softly blurred green foliage","enabled":true,"group":"nature"},{"ko":"공원","en":"softly blurred quiet park","enabled":true,"group":"nature"},{"ko":"잔디밭","en":"softly blurred grassy field","enabled":true,"group":"nature"},{"ko":"정원","en":"softly blurred garden","enabled":true,"group":"nature"},{"ko":"숲길","en":"softly blurred forest path","enabled":true,"group":"nature"},{"ko":"해변","en":"softly blurred sandy beach","enabled":true,"group":"coast"},{"ko":"바다","en":"softly blurred ocean background","enabled":true,"group":"coast"},{"ko":"호숫가","en":"softly blurred lakeside background","enabled":true,"group":"nature"},{"ko":"산 풍경","en":"softly blurred distant mountains","enabled":true,"group":"nature"},{"ko":"도시 거리","en":"softly blurred quiet city street","enabled":true,"group":"city"},{"ko":"건물 외벽","en":"softly blurred modern building facade","enabled":true,"group":"city"},{"ko":"옥상","en":"softly blurred rooftop cityscape","enabled":true,"group":"city"}]}];
 const neutral={ko:'무표정',en:'neutral facial expression, relaxed facial muscles, closed lips'};
@@ -61,57 +66,58 @@ const goldenHour = {ko:'해질 무렵', en:'golden hour'};
 const evening = {ko:'이른 저녁', en:'early evening'};
 
 // Pick one compatible scene. Each field has its own wording so toggles work independently.
-function scene(weather, time, ko, en) {
-  return {weather, time, lighting: {ko, en}};
+function scene(weather, time, ko, en, short = en) {
+  return {weather, time, lighting: {ko, en, short}};
 }
 const scenes = {
   studio: [
     scene(null, null, '정면 소프트박스', 'soft frontal softbox lighting'),
-    scene(null, null, '반사판 보조광', 'balanced studio light with reflector fill'),
+    scene(null, null, '반사판 보조광', 'balanced studio light with reflector fill', 'studio light, reflector fill'),
     scene(null, null, '클램셸 조명', 'soft clamshell lighting'),
   ],
   indoor: [
     scene(null, morning, '부드러운 실내 확산광', 'soft diffused indoor light'),
     scene(null, day, '고른 실내 반사광', 'even bounced interior light'),
     scene(null, afternoon, '은은한 실내 보조광', 'gentle interior fill light'),
-    scene(null, evening, '따뜻한 실내 정면광', 'soft warm interior light on the face'),
+    scene(null, evening, '따뜻한 실내 정면광', 'soft warm interior light on the face', 'warm frontal indoor light'),
   ],
   window: [
-    scene({ko:'창밖 맑음', en:'clear skies outside the window'}, morning, '부드러운 창가광', 'soft window light with gentle fill'),
+    scene({ko:'창밖 맑음', en:'clear skies outside the window'}, morning, '부드러운 창가광', 'soft window light with gentle fill', 'soft window light, fill'),
     scene({ko:'창밖 흐림', en:'overcast skies outside the window'}, day, '고른 창가 확산광', 'even diffused window light'),
-    scene({ko:'창밖 가벼운 비', en:'light rain outside the window'}, afternoon, '저대비 창가광', 'low-contrast window light across the face'),
+    scene({ko:'창밖 가벼운 비', en:'light rain outside the window'}, afternoon, '저대비 창가광', 'low-contrast window light across the face', 'low-contrast window light'),
   ],
   nature: [
-    scene(clear, morning, '부드러운 자연광', 'soft natural light across the face'),
-    scene(partlyCloudy, afternoon, '그늘의 확산광', 'gentle diffused light in open shade'),
+    scene(clear, morning, '부드러운 자연광', 'soft natural light across the face', 'soft natural light'),
+    scene(partlyCloudy, afternoon, '그늘의 확산광', 'gentle diffused light in open shade', 'diffused open-shade light'),
     scene(overcast, day, '저대비 확산광', 'low-contrast diffused natural light'),
-    scene(clear, goldenHour, '따뜻한 정면광', 'warm soft light from in front of the subject'),
+    scene(clear, goldenHour, '따뜻한 정면광', 'warm soft light from in front of the subject', 'warm soft frontal light'),
   ],
   coast: [
     scene(clear, morning, '은은한 해안 반사광', 'gentle reflected coastal light'),
-    scene(partlyCloudy, day, '부드러운 해안광', 'soft coastal light with even facial exposure'),
+    scene(partlyCloudy, day, '부드러운 해안광', 'soft coastal light with even facial exposure', 'even coastal light'),
     scene(overcast, afternoon, '바닷가 확산광', 'diffused seaside light'),
-    scene(clear, goldenHour, '따뜻한 해안 정면광', 'soft warm coastal light on the face'),
+    scene(clear, goldenHour, '따뜻한 해안 정면광', 'soft warm coastal light on the face', 'warm frontal coastal light'),
   ],
   city: [
-    scene(clear, morning, '건물 반사광', 'soft light reflected from nearby buildings'),
-    scene(overcast, day, '고른 도심 확산광', 'diffused urban light with even facial exposure'),
-    scene(partlyCloudy, afternoon, '부드러운 도심광', 'soft urban light with gentle fill'),
-    scene(clear, evening, '은은한 거리 보조광', 'soft street lighting with frontal fill'),
+    scene(clear, morning, '건물 반사광', 'soft light reflected from nearby buildings', 'reflected urban light'),
+    scene(overcast, day, '고른 도심 확산광', 'diffused urban light with even facial exposure', 'even diffused urban light'),
+    scene(partlyCloudy, afternoon, '부드러운 도심광', 'soft urban light with gentle fill', 'soft urban fill light'),
+    scene(clear, evening, '은은한 거리 보조광', 'soft street lighting with frontal fill', 'street lighting, frontal fill'),
   ],
 };
 
 function environmentFor(background, options) {
-  if (!background.group) return [];
+  if (!background.group) return {};
   const pool = scenes[background.group];
   const {weather, time, lighting} = pool[Math.floor(Math.random() * pool.length)];
-  return [
-    options.weather && weather,
-    options.time && time,
-    options.lighting && lighting,
-  ].filter(Boolean);
+  return {weather: options.weather && weather, time: options.time && time, lighting: options.lighting && lighting};
 }
 const $=id=>document.getElementById(id);let output=[];
+// Chrome navigates to file: links instead of downloading them. Capture the clean page before rendering.
+if (location.protocol === 'file:') {
+  const source = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+  $('offlineDownload').href = URL.createObjectURL(new Blob([source], {type:'text/html;charset=utf-8'}));
+}
 const make=(tag,cls,txt)=>{let e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
 const selected=g=>g.items.filter(x=>x.enabled);
 function metrics(){ $('metrics').replaceChildren();for(const g of library){const m=make('div','metric');m.append(make('strong','',selected(g).length+(g.name==='미세 표정'?1:0)),make('span','muted',g.name==='미세 표정'?'표정 (무표정 포함)':g.name));$('metrics').append(m);$('sel-'+g.id).textContent=selected(g).length+'/'+g.items.length+' 선택';}}
@@ -132,6 +138,82 @@ function estimate() {
 }
 function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
 function balanced(a,n){if(!a.length&&n)throw Error('Empty library');let b=[];while(b.length<n)b.push(...shuffle(a));return b.slice(0,n)}
+const joinPhrases = parts => parts.filter(Boolean).join(', ');
+const sentence = text => text && (/[.!?]$/.test(text) ? text : text + '.');
+const withArticle = text => (/^[aeiou]/i.test(text) ? 'an ' : 'a ') + text;
+
+function midjourneyPrompt(shot, options) {
+  const {frame, hair, angle, outfit, expression, background, environment} = shot;
+  const pose = angle.en.replace('straight-on front view', 'front view').replace('three-quarter', '3/4')
+    .replace('head tilted toward', 'head tilted to');
+  const backdrop = background.en.replace('softly blurred ', 'blurred ').replace(/^plain (.+) studio backdrop$/, 'solid $1 backdrop');
+  const face = expression === neutral ? 'neutral expression, closed lips' : expression.en.replace('very subtle ', 'subtle ');
+  const crop = frame === closeUp ? 'face close-up' : 'waist-up';
+  const subject = options.prefix === $('prefix').defaultValue ? crop + ' photo' : joinPhrases([options.prefix, crop + ' portrait']);
+  const body = joinPhrases([subject, face, pose,
+    hair.en, outfit.en, backdrop, ...environment.map(x => x.short || x.en), options.suffix]);
+  return [body, options.params].filter(Boolean).join(' ');
+}
+
+function gptImagePrompt(shot, options) {
+  const {frame, hair, angle, outfit, expression, background, environment} = shot;
+  const setting = joinPhrases([background.en, ...environment.map(x => x.en)]);
+  return [
+    'Create a ' + frame.en + ' for a character reference set.',
+    'Pose and expression — ' + sentence(joinPhrases([angle.en, expression.en])),
+    'Hair and wardrobe — ' + sentence(joinPhrases([hair.en, outfit.en])),
+    setting && 'Setting — ' + sentence(setting),
+    options.prefix, options.suffix,
+  ].filter(Boolean).join('\n');
+}
+
+function subjectDescription(shot) {
+  const hair = shot.hair.en;
+  const hairstyle = /\b(?:cut|haircut|bob|ponytail|bun|braid)\b/.test(hair) ? withArticle(hair) : hair;
+  return 'a person with ' + hairstyle + ' wearing ' + withArticle(shot.outfit.en.replace(', hood down', ' with the hood down'));
+}
+
+function geminiPrompt(shot, options) {
+  const {angle, expression, background, context} = shot;
+  const frame = shot.frame === closeUp ? 'Frame their face in close-up.' : 'Frame them from the waist up.';
+  const pose = angle.en.startsWith('head turned') ? 'Their head is ' + angle.en.slice(5)
+    : angle.en.startsWith('looking back') ? 'They are ' + angle.en
+    : 'Use ' + withArticle(angle.en);
+  const backdrop = /(?:curtains|shelves|plants|foliage|mountains)$/.test(background.en) ? background.en : withArticle(background.en);
+  const face = expression === neutral ? 'Their face is relaxed and neutral, with closed lips.'
+    : 'Show ' + (/^(eyes|eyebrows|lips|one eyebrow|slightly (upturned|furrowed))/.test(expression.en) ? expression.en : withArticle(expression.en)) + '.';
+  const timeWeather = context.time ? 'It is ' + context.time.en + (context.weather ? ', with ' + context.weather.en : '')
+    : context.weather && 'Show ' + context.weather.en;
+  const style = options.prefix === $('prefix').defaultValue ? 'Keep the facial features consistent and the image photorealistic.' : sentence(options.prefix);
+  const surface = options.suffix === $('suffix').defaultValue ? 'Preserve natural skin texture.' : sentence(options.suffix);
+  return ['Photograph ' + subjectDescription(shot) + '.', frame, sentence(pose), face,
+    background.en && 'Behind the subject, show ' + backdrop + '.', sentence(timeWeather),
+    context.lighting && 'Use ' + context.lighting.en + '.', style, surface].filter(Boolean).join(' ');
+}
+
+function fluxPrompt(shot, options) {
+  const {frame, angle, expression, background, environment} = shot;
+  const subject = subjectDescription(shot);
+  const pose = joinPhrases([angle.en, expression.en]);
+  const setting = joinPhrases([background.en, ...environment.map(x => x.en)]);
+  return [sentence(subject[0].toUpperCase() + subject.slice(1)), sentence(pose[0].toUpperCase() + pose.slice(1)),
+    sentence(joinPhrases([frame.en, options.prefix, options.suffix])), sentence(setting)].filter(Boolean).join(' ');
+}
+
+function sdxlPrompt(shot, options) {
+  const {frame, hair, angle, outfit, expression, background, environment} = shot;
+  return joinPhrases([frame.en, options.prefix, expression.en, angle.en, hair.en, outfit.en,
+    background.en, ...environment.map(x => x.en), options.suffix]);
+}
+
+const formatters = {
+  Midjourney: midjourneyPrompt,
+  'GPT Image': gptImagePrompt,
+  'Gemini (Nano Banana)': geminiPrompt,
+  'FLUX.2': fluxPrompt,
+  'Stable Diffusion XL': sdxlPrompt,
+};
+
 function build(groups, n, neutralTotal, closeTotal, options) {
   const [hair, angle, outfit, expression, background] = groups;
   const styles = [hair, angle, outfit].map(group => balanced(group, n));
@@ -139,11 +221,13 @@ function build(groups, n, neutralTotal, closeTotal, options) {
   const frames = shuffle([...Array(closeTotal).fill(closeUp), ...Array(n - closeTotal).fill(waistUp)]);
   const backgrounds = background.length ? balanced(background, n) : Array(n).fill(noBackground);
   return Array.from({length:n}, (_, i) => {
-    const items = [frames[i], ...styles.map(column => column[i]), expressions[i], backgrounds[i]];
-    const environment = environmentFor(backgrounds[i], options);
-    const parts = [...items, ...environment].map(item => item.en);
-    const description = [options.prefix, ...parts, options.suffix].filter(Boolean).join(', ');
-    return {items, environment, text: [description, options.params].filter(Boolean).join(' ')};
+    const [hair, angle, outfit] = styles.map(column => column[i]);
+    const frame = frames[i], expression = expressions[i], background = backgrounds[i];
+    const context = environmentFor(background, options);
+    const environment = Object.values(context).filter(Boolean);
+    const shot = {frame, hair, angle, outfit, expression, background, context, environment};
+    const texts = Object.fromEntries(Object.entries(formatters).map(([name, format]) => [name, format(shot, options)]));
+    return {items: [frame, hair, angle, outfit, expression, background], environment, texts};
   });
 }
 async function copy(text){try{await navigator.clipboard.writeText(text);$('status').textContent='복사 완료';return}catch{}const t=make('textarea');t.value=text;document.body.append(t);t.select();let ok=false;try{ok=document.execCommand('copy')}catch{}t.remove();$('status').textContent=ok?'복사 완료':'복사가 제한되어 있습니다. 결과를 선택해 복사하거나 TXT로 저장하세요.'}
@@ -160,21 +244,68 @@ function generate() {
     weather: $('useWeather').checked, time: $('useTime').checked, lighting: $('useLighting').checked,
     prefix: $('prefix').value.trim(), suffix: $('suffix').value.trim(), params: $('params').value.trim(),
   });
+  $('info').textContent = '장면 ' + n + '개 · 무표정 ' + neutrals + '개 · 미세 표정 ' + (n - neutrals)
+    + '개 · 얼굴 클로즈업 ' + closeUps + '개 · 상반신 ' + (n - closeUps) + '개';
+  renderResults();
+}
+
+function selectedModels() {
+  return Array.from($('models').querySelectorAll('input:checked'), input => input.value);
+}
+
+function renderResults() {
+  const models = selectedModels();
   $('results').replaceChildren();
+  $('status').textContent = models.length ? '' : '비교할 이미지 모델을 하나 이상 선택하세요.';
+  $('copyAll').disabled = $('save').disabled = !models.length || !output.length;
+  if (!models.length) return;
   output.forEach((item, i) => {
-    const row = make('div','result-row'), body = make('div'), button = make('button','copy','복사');
+    const row = make('div','result-row'), body = make('div');
     body.append(make('div','tagline',item.items.map(x => x.ko).join(' · ')));
     if (item.environment.length) body.append(make('div','derived',item.environment.map(x => x.ko).join(' · ')));
-    body.append(make('div','prompt',item.text));
-    button.onclick = () => copy(item.text);
-    row.append(make('div','muted',String(i + 1).padStart(2,'0')), body, button);
+    for (const name of models) {
+      const variant = make('div','variant'), button = make('button','copy','복사');
+      const label = make('div','small'), text = item.texts[name];
+      const prose = name === 'Midjourney' ? text.split(/(?:^|\s)--/)[0] : text;
+      label.append(make('span','model-name',name), make('span','muted',' · 본문 ' + prose.trim().split(/\s+/).length + '단어'));
+      button.setAttribute('aria-label', (i + 1) + '번 ' + name + ' 복사');
+      button.onclick = () => copy(text);
+      variant.append(label, make('div','prompt',text), button);
+      body.append(variant);
+    }
+    row.append(make('div','muted',String(i + 1).padStart(2,'0')), body);
     $('results').append(row);
   });
-  $('info').textContent = n + '개 생성 · 무표정 ' + neutrals + '개 · 미세 표정 ' + (n - neutrals)
-    + '개 · 얼굴 클로즈업 ' + closeUps + '개 · 상반신 ' + (n - closeUps) + '개';
-  $('status').textContent = '';
   $('results').scrollTop = 0;
 }
+
+function exportText() {
+  const models = selectedModels();
+  return output.flatMap((item, i) => models.map(name => {
+    const header = models.length > 1 ? '[' + String(i + 1).padStart(2,'0') + ' · ' + name + ']\n' : '';
+    return header + item.texts[name];
+  })).join('\n\n');
+}
+
+for (const name of Object.keys(formatters)) {
+  const label = make('label'), checkbox = make('input');
+  checkbox.type = 'checkbox';
+  checkbox.value = name;
+  checkbox.checked = name === 'Midjourney';
+  checkbox.onchange = renderResults;
+  label.append(checkbox, ' ' + name);
+  $('models').append(label);
+}
 $('frameRatio').oninput = estimate;
-$('generate').onclick=generate;$('ratio').oninput=estimate;$('count').oninput=estimate;document.querySelectorAll('[data-count]').forEach(b=>b.onclick=()=>{$('count').value=b.dataset.count;estimate()});$('copyAll').onclick=()=>{if(output.length)copy(output.map(x=>x.text).join('\n\n'))};$('save').onclick=()=>{if(!output.length)return;const url=URL.createObjectURL(new Blob([output.map(x=>x.text).join('\n\n')],{type:'text/plain;charset=utf-8'}));const a=make('a');a.href=url;a.download='face-prompts.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};metrics();estimate();generate();
+$('generate').onclick=generate;$('ratio').oninput=estimate;$('count').oninput=estimate;document.querySelectorAll('[data-count]').forEach(b=>b.onclick=()=>{$('count').value=b.dataset.count;estimate()});
+$('copyAll').onclick = () => copy(exportText());
+$('save').onclick = () => {
+  const url = URL.createObjectURL(new Blob([exportText()], {type:'text/plain;charset=utf-8'}));
+  const link = make('a');
+  link.href = url;
+  link.download = 'face-prompts.txt';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+metrics(); estimate(); generate();
 </script></body></html>

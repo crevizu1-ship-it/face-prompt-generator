@@ -1,12 +1,13 @@
 const { before, after, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { readFile } = require('node:fs/promises');
+const { readFile, mkdtemp, rm } = require('node:fs/promises');
+const { tmpdir } = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright-core');
 
 const site = process.env.TEST_SITE_URL || pathToFileURL(path.resolve(__dirname, '../index.html')).href;
-const framing = ['face close-up portrait', 'waist-up portrait'];
+const framing = ['face close-up', 'waist-up'];
 const weather = /\b(?:clear|partly cloudy|overcast) skies\b|light rain outside the window/;
 const time = /\b(?:morning|daytime|late afternoon|golden hour|early evening)\b/;
 const lighting = /\b(?:light|lighting)\b(?! rain)/;
@@ -24,6 +25,12 @@ async function openPage(t) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   t.after(() => assert.deepEqual(errors, []));
+  if (site.startsWith('file:')) {
+    await page.context().setOffline(true);
+    const networkRequests = [];
+    page.on('request', request => { if (/^https?:/.test(request.url())) networkRequests.push(request.url()); });
+    t.after(() => assert.deepEqual(networkRequests, []));
+  }
   await page.addInitScript(() => {
     let seed = 1234;
     Math.random = () => {
@@ -38,6 +45,7 @@ async function openPage(t) {
 
 const prompts = page => page.locator('.prompt').allTextContents();
 const generate = page => page.locator('#generate').click();
+const model = (page, name) => page.getByRole('checkbox', {name, exact:true});
 const bucket = (page, index) => page.locator('#libraries details').nth(index);
 async function selectOnly(page, index, choice) {
   const group = bucket(page, index);
@@ -50,7 +58,7 @@ test('first batch has 16 neutral expressions and 14 face close-ups in 20 prompts
   const page = await openPage(t);
   const rows = await prompts(page);
   assert.equal(rows.length, 20);
-  assert.equal(rows.filter(row => row.includes('neutral facial expression')).length, 16);
+  assert.equal(rows.filter(row => row.includes('neutral expression')).length, 16);
   assert.equal(rows.filter(row => row.includes(framing[0])).length, 14);
   assert.equal(rows.filter(row => row.includes(framing[1])).length, 6);
   for (const row of rows) assert.doesNotMatch(row, /head-and-shoulders|soft even lighting/);
@@ -68,12 +76,14 @@ test('framing ratios round per batch, show estimates, and allow either framing a
     assert.equal(rows.length, 7);
     assert.equal(rows.filter(row => row.includes(framing[0])).length, close);
     assert.equal(rows.filter(row => row.includes(framing[1])).length, 7-close);
-    assert.equal(rows.filter(row => row.includes('neutral facial expression')).length, 6);
+    assert.equal(rows.filter(row => row.includes('neutral expression')).length, 6);
   }
 });
 
 test('all 40 backgrounds use their own environment, with varied compatible outdoor scenes', async t => {
   const page = await openPage(t);
+  await model(page, 'Stable Diffusion XL').check();
+  await model(page, 'Midjourney').uncheck();
   await page.locator('#count').fill('200');
   await generate(page);
   const samples = await prompts(page);
@@ -110,7 +120,7 @@ test('all eight independent switch settings reach the rendered prompt', async t 
       assert.equal(tag.split(' · ').length, [1, 2, 4].filter(bit => mask & bit).length);
     }
     for (const row of await prompts(page)) {
-      const scene = row.split('softly blurred sandy beach, ')[1].split('natural skin texture')[0];
+      const scene = row.split('blurred sandy beach, ')[1].split('natural skin texture')[0];
       assert.equal(weather.test(scene), Boolean(mask & 1));
       assert.equal(time.test(scene), Boolean(mask & 2));
       assert.equal(lighting.test(scene), Boolean(mask & 4));
@@ -130,7 +140,7 @@ test('existing style choices, empty background, count limits and expression vali
   const rows = await prompts(page);
   assert.equal(rows.length, 30);
   for (const row of rows) {
-    for (const part of ['long straight hair', 'straight-on front view', 'plain white crew-neck T-shirt', 'very subtle closed-mouth smile']) assert.ok(row.includes(part));
+    for (const part of ['long straight hair', 'front view, head upright', 'plain white crew-neck T-shirt', 'subtle closed-mouth smile']) assert.ok(row.includes(part));
     assert.doesNotMatch(row, weather);
     assert.doesNotMatch(row, time);
     assert.doesNotMatch(row, lighting);
@@ -191,4 +201,93 @@ test('controls and results fit mobile and desktop in both color schemes', async 
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
   }
+});
+
+test('five model formats share the current scene, work offline and export by model', async t => {
+  const page = await openPage(t);
+  await page.context().setOffline(true);
+  await page.locator('#count').fill('2');
+  await selectOnly(page, 0, 0);
+  await selectOnly(page, 2, 3);
+  await selectOnly(page, 4, 33);
+  await page.locator('#ratio').fill('100');
+  await generate(page);
+  const firstPass = await prompts(page);
+  const tags = await page.locator('.tagline').allTextContents();
+  const models = ['Midjourney', 'GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL'];
+  for (const name of models.slice(1)) await model(page, name).check();
+  assert.deepEqual(await page.locator('.tagline').allTextContents(), tags);
+  const rows = page.locator('.result-row');
+  assert.equal(await rows.count(), 2);
+  const exported = [];
+  for (let i = 0; i < 2; i++) {
+    const row = rows.nth(i);
+    assert.deepEqual(await row.locator('.model-name').allTextContents(), models);
+    const texts = await row.locator('.prompt').allTextContents();
+    assert.equal(texts[0], firstPass[i]);
+    assert.equal(new Set(texts).size, 5);
+    for (const [j, text] of texts.entries()) {
+      assert.match(text, /long straight hair/i);
+      assert.match(text, /navy (?:blue )?T-shirt/i);
+      assert.match(text, /beach/i);
+      assert.match(text, /neutral/i);
+      assert.equal(text.includes('--raw'), j === 0);
+      exported.push('[' + String(i + 1).padStart(2,'0') + ' · ' + models[j] + ']\n' + text);
+    }
+    const before = texts[4].split(/\s+/).length;
+    assert.ok(texts[0].split(' --')[0].split(/\s+/).length < before);
+  }
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText: async value => { window.copiedText = value; }}
+  }));
+  await rows.first().locator('.copy').nth(2).click();
+  assert.equal(await page.evaluate(() => window.copiedText), await rows.first().locator('.prompt').nth(2).innerText());
+  await page.locator('#copyAll').click();
+  assert.equal(await page.evaluate(() => window.copiedText), exported.join('\n\n'));
+  const event = page.waitForEvent('download');
+  await page.locator('#save').click();
+  assert.equal(await readFile(await (await event).path(), 'utf8'), exported.join('\n\n'));
+  for (const name of models) await model(page, name).uncheck();
+  assert.equal((await prompts(page)).length, 0);
+  assert.ok(await page.locator('#copyAll').isDisabled());
+  await model(page, 'Midjourney').check();
+  assert.deepEqual(await prompts(page), firstPass);
+});
+
+test('model formats preserve custom text and omit unselected environment fields', async t => {
+  const page = await openPage(t);
+  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL']) await model(page, name).check();
+  await page.locator('#count').fill('1');
+  await selectOnly(page, 4);
+  await page.locator('.advanced summary').click();
+  const prefix = 'Use this exact visual style: ' + 'delicate detail '.repeat(20) + 'from the reference.';
+  await page.locator('#prefix').fill(prefix);
+  await page.locator('#suffix').fill('Keep the tiny freckle.');
+  await page.locator('#params').fill('--ar 4:5');
+  await generate(page);
+  const texts = await prompts(page);
+  assert.equal(texts.length, 5);
+  for (const [i, text] of texts.entries()) {
+    assert.ok(text.includes(prefix));
+    assert.ok(text.includes('Keep the tiny freckle.'));
+    assert.equal(text.includes('--ar 4:5'), i === 0);
+    assert.doesNotMatch(text, /undefined|null|backdrop|setting:|outside the window|studio lighting/i);
+  }
+});
+
+test('the downloadable HTML starts by itself offline and formats all five models', async t => {
+  const page = await openPage(t);
+  const downloadEvent = page.waitForEvent('download', {timeout: 5000});
+  const [download] = await Promise.all([downloadEvent, page.getByRole('link', {name:'오프라인용 HTML 저장'}).click()]);
+  const dir = await mkdtemp(path.join(tmpdir(), 'face-prompts-'));
+  t.after(() => rm(dir, {force:true, recursive:true}));
+  const filename = path.join(dir, 'offline.html');
+  await download.saveAs(filename);
+  await page.context().setOffline(true);
+  await page.goto(pathToFileURL(filename).href);
+  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL']) await model(page, name).check();
+  await page.locator('#count').fill('200');
+  await generate(page);
+  assert.equal(await page.locator('.result-row').count(), 200);
+  assert.equal((await prompts(page)).length, 1000);
 });
