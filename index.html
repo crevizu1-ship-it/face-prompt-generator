@@ -56,6 +56,10 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
       <option value="4">Basic · 최대 4개씩</option>
       <option value="10">Standard · 최대 10개씩</option>
       <option value="40">Pro / Mega · 최대 40개씩</option>
+      <optgroup label="Fast 동시 실행 수에 맞춰 복사">
+        <option value="3" data-fast-start="3">Fast · Basic / Standard · 최대 3개씩</option>
+        <option value="12" data-fast-start="10">Fast · Pro / Mega · 최대 12개씩</option>
+      </optgroup>
       <option value="1">한 개씩 · Relax 포함</option>
     </select>
   </div>
@@ -66,6 +70,10 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
       <div id="countPresets" class="quick"></div>
     </div>
     <p id="countHint" class="muted" hidden>Pro / Mega에서는 생성·추가할 장면 수를 40의 배수로 올림합니다. 한 번에 최대 200개입니다.</p>
+    <div id="fastHint" class="muted reference-help" hidden>
+      <p id="fastEstimate" aria-live="polite"></p>
+      <p>V7에서 <a href="https://docs.midjourney.com/hc/en-us/articles/36285124473997-Omni-Reference" target="_blank" rel="noopener noreferrer">Omni Reference</a>로 얼굴을 참조할 때는 Fast 옵션을 해제하세요.</p>
+    </div>
   </div>
   <div class="generate-actions">
     <button id="generate" class="primary">랜덤 프롬프트 생성</button>
@@ -271,20 +279,27 @@ function count(control = 'count') {
   return Math.max(Number(input.min), Math.min(Number(input.max), rounded));
 }
 
+function fastMode() {
+  return $('mjCopyMode').selectedOptions[0].hasAttribute('data-fast-start');
+}
+
 function syncGenerationControls() {
   const midjourney = selectedModels().includes('Midjourney');
   const pro = midjourney && $('mjCopyMode').value === '40';
+  const fast = midjourney && fastMode();
   const step = pro ? 40 : 1;
   $('mjPlan').hidden = !midjourney;
   $('countHint').hidden = !pro;
+  $('fastHint').hidden = !fast;
   for (const id of ['count', 'appendCount']) {
     const input = $(id);
     input.min = input.step = String(step);
     input.value = count(id);
   }
-  const presets = pro ? [40, 80, 120, 160, 200] : [10, 30, 50, 100];
+  let presets = pro ? [40, 80, 120, 160, 200] : [10, 30, 50, 100];
+  if (fast) presets = $('mjCopyMode').value === '12' ? [10, 12, 24, 40] : [3, 6, 10, 12];
   $('countPresets').replaceChildren(...presets.map(value => {
-    const button = make('button', '', String(value));
+    const button = make('button', '', fast ? value + '개 · ' + value * 4 + '장' : String(value));
     button.dataset.count = value;
     button.onclick = () => { $('count').value = value; estimate(); };
     return button;
@@ -296,6 +311,9 @@ function quota(n, control) {
 }
 function estimate() {
   const n = count();
+  if (!$('fastHint').hidden) {
+    $('fastEstimate').textContent = '새로 생성할 프롬프트 ' + n + '개 × 기본 이미지 4장 = 예상 ' + n * 4 + '장. Fast GPU 시간을 사용합니다.';
+  }
   const neutrals = quota(n, 'ratio');
   const closeUps = quota(n, 'frameRatio');
   const closePercent = Number($('frameRatio').value);
@@ -430,10 +448,8 @@ function build(groups, n, neutralTotal, closeTotal, options) {
     const view = options.recommended && angle.referenceView ? {...angle, en:angle.referenceView} : angle;
     const shot = {frame, hair, angle:view, bodyPose:pose?.en, outfit, expression, background, context, environment};
     const texts = Object.fromEntries(Object.entries(formatters).map(([name, format]) => [name, format(shot, options)]));
-    const mjBody = texts.Midjourney;
-    texts.Midjourney = [mjBody, options.params].filter(Boolean).join(' ');
     return {items: [frame, hair, angle, pose, outfit, expression, background].filter(Boolean), angle, environment, texts,
-      mjBody, mjParams: options.params, copied: new Set()};
+      mjParams: options.params, copied: new Set()};
   });
 }
 async function copy(text) {
@@ -451,9 +467,13 @@ async function copy(text) {
   }
 }
 
+function selectionCopyKey(models) {
+  return models.join('|') + (models.includes('Midjourney') && fastMode() ? '|--fast' : '');
+}
+
 function updateCopyMarks() {
   const bulk = $('copyAll');
-  const allCopied = copiedSelections.has(selectedModels().join('|'));
+  const allCopied = copiedSelections.has(selectionCopyKey(selectedModels()));
   bulk.classList.toggle('copied', allCopied);
   bulk.textContent = allCopied ? '✓ 전체 복사됨' : '전체 복사';
   $('copyArchive').classList.toggle('copied', allCopied);
@@ -470,6 +490,7 @@ function updateCopyMarks() {
 
 async function copyAndMark(items, models, text, bulk = false) {
   const batch = output;
+  const selectionKey = selectionCopyKey(models);
   const ok = await copy(text);
   if (batch !== output) return;
   if (!ok) {
@@ -483,19 +504,30 @@ async function copyAndMark(items, models, text, bulk = false) {
       for (const name of models) item.copied.add(name);
     }
   }
-  if (bulk && items.length === output.length) copiedSelections.add(models.join('|'));
+  if (bulk && items.length === output.length) copiedSelections.add(selectionKey);
   updateCopyMarks();
+}
+
+function midjourneyParameters(item) {
+  if (!fastMode()) return item.mjParams;
+  const params = item.mjParams.replace(/(?:^|\s)--(?:turbo|relax|fast)(?=\s|$)/gi, '').trim();
+  return [params, '--fast'].filter(Boolean).join(' ');
+}
+
+function promptText(item, model) {
+  const body = item.texts[model];
+  return model === 'Midjourney' ? [body, midjourneyParameters(item)].filter(Boolean).join(' ') : body;
 }
 
 function copyPrompts(models, index) {
   if (index === undefined) return copyAndMark(output.slice(), models, exportText(models), true);
   const item = output[index];
-  return copyAndMark([item], models, item.texts[models[0]]);
+  return copyAndMark([item], models, promptText(item, models[0]));
 }
 
 const pendingBundleCopies = new WeakSet();
 function needsSinglePrompt(item) {
-  return /[{}]|(?:^|\s)--(?:r|repeat|relax)(?=\s|$)/i.test(item.texts.Midjourney) || /\\(?:,|$)/.test(item.mjBody);
+  return /[{}]|(?:^|\s)--(?:r|repeat|relax)(?=\s|$)/i.test(promptText(item, 'Midjourney')) || /\\(?:,|$)/.test(item.texts.Midjourney);
 }
 function midjourneyQueue() {
   const remaining = output.filter(item => !item.copied.has('Midjourney'));
@@ -503,10 +535,11 @@ function midjourneyQueue() {
   const first = remaining[0];
   if (!first) return {remaining, next: [], singleOnly: false};
   const singleOnly = limit > 1 && needsSinglePrompt(first);
+  const params = midjourneyParameters(first);
   const next = [first];
   for (let i = 1; !singleOnly && i < limit && i < remaining.length; i++) {
     const item = remaining[i];
-    if (item.mjParams !== first.mjParams || needsSinglePrompt(item)) break;
+    if (midjourneyParameters(item) !== params || needsSinglePrompt(item)) break;
     next.push(item);
   }
   return {remaining, next, singleOnly};
@@ -527,6 +560,9 @@ function updateMidjourneyControls() {
   let help = 'Fast 또는 Turbo에서 묶음을 Imagine 입력창에 붙여넣고 전송하세요. GPU 시간은 장면별로 사용됩니다.';
   if (singleOnly) help = '현재 프롬프트에 묶음과 함께 쓰기 어려운 문법이나 모드가 있어 한 개씩 복사합니다.';
   else if ($('mjCopyMode').value === '1') help = '복사한 항목을 Imagine 입력창에 붙여넣고 전송한 뒤, 같은 버튼으로 다음 장면을 복사하세요.';
+  else if (fastMode()) help = next.length
+    ? '이번 복사 ' + next.length + '개 · 기본 이미지 ' + next.length * 4 + '장 예상. 전송하면 Fast GPU 시간이 사용됩니다.'
+    : '이 목록의 미드저니 프롬프트를 모두 복사했습니다.';
   $('mjHelp').textContent = help;
 }
 
@@ -535,10 +571,10 @@ async function copyNextMidjourney() {
   if (pendingBundleCopies.has(batch)) return;
   const {next} = midjourneyQueue();
   if (!next.length) return;
-  let text = next[0].texts.Midjourney;
+  let text = promptText(next[0], 'Midjourney');
   if (next.length > 1) {
-    const alternatives = next.map(item => item.mjBody.replaceAll(',', '\\,'));
-    text = ['{' + alternatives.join(', ') + '}', next[0].mjParams].filter(Boolean).join(' ');
+    const alternatives = next.map(item => item.texts.Midjourney.replaceAll(',', '\\,'));
+    text = ['{' + alternatives.join(', ') + '}', midjourneyParameters(next[0])].filter(Boolean).join(' ');
   }
   pendingBundleCopies.add(batch);
   $('mjNext').disabled = true;
@@ -624,8 +660,8 @@ function renderResults(start = 0) {
     if (item.environment.length) body.append(make('div','derived',item.environment.map(x => x.ko).join(' · ')));
     for (const name of models) {
       const variant = make('div','variant'), button = make('button','copy','복사');
-      const label = make('div','small'), text = item.texts[name];
-      const prose = name === 'Midjourney' ? item.mjBody : text;
+      const label = make('div','small'), text = promptText(item, name);
+      const prose = item.texts[name];
       label.append(make('span','model-name',name), make('span','muted',' · 본문 ' + prose.trim().split(/\s+/).length + '단어'));
       button.dataset.index = i;
       button.dataset.model = name;
@@ -646,7 +682,7 @@ function renderResults(start = 0) {
 function exportText(models = selectedModels()) {
   return output.flatMap((item, i) => models.map(name => {
     const header = models.length > 1 ? '[' + String(i + 1).padStart(2,'0') + ' · ' + name + ']\n' : '';
-    return header + item.texts[name];
+    return header + promptText(item, name);
   })).join('\n\n');
 }
 
@@ -671,7 +707,14 @@ $('append').onclick = () => generate(true, recommendedList);
 $('clean').onclick = clearResults;
 $('copyAll').onclick = () => copyPrompts(selectedModels());
 $('copyArchive').onclick = () => copyPrompts(selectedModels());
-$('mjCopyMode').onchange = () => { syncGenerationControls(); updateMidjourneyControls(); };
+$('mjCopyMode').onchange = () => {
+  const wasFast = !$('fastHint').hidden;
+  const start = $('mjCopyMode').selectedOptions[0].dataset.fastStart;
+  if (start) $('count').value = $('appendCount').value = start;
+  syncGenerationControls();
+  if (wasFast !== fastMode()) renderResults();
+  else updateMidjourneyControls();
+};
 $('mjNext').onclick = copyNextMidjourney;
 $('save').onclick = () => {
   const url = URL.createObjectURL(new Blob([exportText()], {type:'text/plain;charset=utf-8'}));

@@ -204,6 +204,81 @@ test('model, plan and scene count appear between the style library and generate 
   }
 });
 
+test('Fast presets distinguish prompts from images and split copies at the plan concurrency limit', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+    value:{writeText:async text => { window.copiedText = text; }},
+  }));
+  const mode = page.locator('#mjCopyMode');
+  for (const [limit, initial, total, sizes] of [[12, 10, 40, [12,12,12,4]], [3, 3, 10, [3,3,3,1]]]) {
+    await mode.selectOption(String(limit));
+    assert.equal(await page.locator('#count').inputValue(), String(initial));
+    assert.equal(await page.locator('#appendCount').inputValue(), String(initial));
+    assert.equal(await page.locator('#count').getAttribute('step'), '1');
+    assert.match(await page.locator('#fastEstimate').innerText(), new RegExp(initial + '개.*예상 ' + initial * 4 + '장'));
+    if (limit === 12) {
+      await page.getByRole('button', {name:'12개 · 48장', exact:true}).click();
+      assert.equal(await page.locator('#count').inputValue(), '12');
+    }
+    await page.locator('[data-count="' + total + '"]').click();
+    await page.locator('#recommend').click();
+    const rows = await prompts(page);
+    assert.equal(rows.length, total);
+    assert.ok(rows.every(text => text.endsWith(' --fast')));
+    for (const size of sizes) {
+      assert.match(await page.locator('#mjHelp').innerText(), new RegExp('이번 복사 ' + size + '개.*' + size * 4 + '장'));
+      await page.locator('#mjNext').click();
+      const copy = await page.evaluate(() => window.copiedText);
+      assert.equal((copy.match(/--fast/g) || []).length, 1);
+      if (size === 1) assert.equal(copy, rows.at(-1));
+      else assert.equal((copy.match(/(?<!\\), /g) || []).length, size - 1);
+    }
+    assert.equal(await page.locator('#mjNext').isDisabled(), true);
+  }
+});
+
+test('Fast mode applies only to Midjourney and consistently switches speed in displayed, appended, copied and saved prompts', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+    value:{writeText:async text => { window.copiedText = text; }},
+  }));
+  await model(page, 'GPT Image').check();
+  await page.locator('.advanced summary').click();
+  await page.locator('#params').fill('--raw --relax --turbo --ar 4:5');
+  await page.locator('#count').fill('2');
+  await generate(page);
+  const before = await prompts(page);
+  await page.locator('#mjCopyMode').selectOption('12');
+  const fast = await prompts(page);
+  assert.equal(fast[1], before[1]);
+  assert.equal(fast[0], before[0].replace('--raw --relax --turbo --ar 4:5', '--raw --ar 4:5 --fast'));
+  await page.locator('.copy').first().click();
+  assert.equal(await page.evaluate(() => window.copiedText), fast[0]);
+  await page.locator('#params').fill('--fast --s 25 --fast');
+  await page.locator('#appendCount').fill('1');
+  await page.locator('#append').click();
+  const withAppend = await prompts(page);
+  assert.deepEqual(withAppend.slice(0,4), fast);
+  assert.ok(withAppend[4].endsWith('--s 25 --fast'));
+  assert.equal(withAppend[4].match(/--fast/g).length, 1);
+  await page.locator('#archive summary').click();
+  await page.locator('#copyArchive').click();
+  const archived = await page.evaluate(() => window.copiedText);
+  for (const text of withAppend) assert.ok(archived.includes(text));
+  const event = page.waitForEvent('download');
+  await page.locator('#save').click();
+  assert.equal(await readFile(await (await event).path(), 'utf8'), archived);
+  await page.locator('#mjCopyMode').selectOption('1');
+  assert.deepEqual((await prompts(page)).slice(0,4), before);
+  assert.equal(await page.locator('.copy.copied').count(), 1);
+  assert.equal(await page.locator('#fastHint').isVisible(), false);
+  assert.doesNotMatch(await page.locator('#copyArchive').innerText(), /✓/);
+  await page.locator('#mjNext').click();
+  assert.equal(await page.evaluate(() => window.copiedText), before[2]);
+  await page.locator('#mjCopyMode').selectOption('40');
+  assert.equal(await page.locator('#count').getAttribute('step'), '40');
+});
+
 test('Pro/Mega sizes new and appended batches in units of forty without altering existing scenes', async t => {
   const page = await openPage(t);
   const count = page.locator('#count'), appendCount = page.locator('#appendCount');
