@@ -136,8 +136,8 @@ const library=[{"id":0,"name":"헤어","items":[{"ko":"긴 생머리","en":"long
   {"ko":"오른쪽 측면에 가깝게","en":"right near-profile view","enabled":true,"direction":"오른쪽 옆얼굴"},
   {"ko":"완전 왼쪽 측면","en":"full left side profile","enabled":true,"direction":"왼쪽 옆얼굴"},
   {"ko":"완전 오른쪽 측면","en":"full right side profile","enabled":true,"direction":"오른쪽 옆얼굴"},
-  {"ko":"정면 턱 살짝 위","en":"front view, chin slightly raised","enabled":true,"direction":"정면"},
-  {"ko":"정면 턱 위","en":"front view, chin raised","enabled":true,"direction":"정면"},
+  {"ko":"정면 턱 살짝 위","en":"front view, chin slightly raised","enabled":true,"direction":"정면","mjHeadLift":"eye-level front, head tilted slightly back"},
+  {"ko":"정면 턱 위","en":"front view, chin raised","enabled":true,"direction":"정면","mjHeadLift":"eye-level front, head tilted farther back"},
   {"ko":"정면 턱 살짝 아래","en":"front view, chin slightly lowered","enabled":true,"direction":"정면"},
   {"ko":"정면 턱 아래","en":"front view, chin lowered","enabled":true,"direction":"정면"},
   {"ko":"정면 고개 깊게 아래","en":"front view, head bowed downward","enabled":true,"direction":"정면"},
@@ -402,7 +402,7 @@ function midjourneyRequired(shot, options, limit) {
   const {frame, angle, expression, hair, outfit} = shot;
   const light = options.recommended && shot.context.lighting?.short;
   const crop = frame === fullHeight ? 'head-to-toe' : frame.crop;
-  const view = angle.en
+  const view = angle.mjHeadLift || angle.en
     .replace('straight-on front view, head upright', 'front view')
     .replace(/three-quarter(?: view| portrait)?/, '3/4')
     .replace(/^(?:full )?(left|right) side profile/, '$1 profile')
@@ -431,7 +431,7 @@ function midjourneyRequired(shot, options, limit) {
   const required = [subject, view, wardrobe, crop, 'natural skin', face, hairstyle, light];
   if (joinPhrases(required).length <= limit) return required;
 
-  const shortView = view.replace(/^front view, /, 'front, ')
+  const shortView = angle.mjHeadLift ? 'eye-level front, head tilted back' : view.replace(/^front view, /, 'front, ')
     .replace(/ slightly\b/, '').replace('near-profile view', 'near-profile');
   const shortFace = face.replace(/\b(?:slightly|subtly|subtle|gently|faint|soft) /g, '')
     .replace(/ expression$/, '').replace('upturned mouth corners', 'upturned lips')
@@ -440,7 +440,7 @@ function midjourneyRequired(shot, options, limit) {
     .replace('full face clear', 'clear face');
   const compactRequired = [subject, shortView, wardrobe, crop, 'natural skin', shortFace, shortHair, light];
   if (frame === closeUp && joinPhrases(compactRequired).length > limit) compactRequired[3] = 'close-up';
-  if (!light || joinPhrases(compactRequired).length <= limit) return compactRequired;
+  if ((!light && !angle.mjHeadLift) || joinPhrases(compactRequired).length <= limit) return compactRequired;
 
   const shortWardrobe = wardrobe.replace('button-up shirt', 'button-up')
     .replace('zip hoodie', 'hoodie').replace(' knit sweater', ' sweater');
@@ -448,7 +448,12 @@ function midjourneyRequired(shot, options, limit) {
   const briefView = shortView.replace('profile, chin', 'profile chin');
   const briefFace = expression === neutral ? 'neutral' : shortFace.replace('eyebrow', 'brow').replace('shy closed smile', 'shy smile');
   const briefCrop = frame === fullHeight ? 'full-body' : compactRequired[3];
-  return ['Photoreal, same face', briefView, shortWardrobe, briefCrop, 'natural skin', briefFace, clearFace, light];
+  const briefSubject = options.recommended ? 'Photoreal, same face' : 'Photoreal';
+  const briefCues = [briefFace, clearFace, light];
+  const briefOpening = [briefSubject, briefView, shortWardrobe, briefCrop];
+  const briefRequired = [...briefOpening, 'natural skin', ...briefCues];
+  if (angle.mjHeadLift && joinPhrases(briefRequired).length > limit) return [...briefOpening, ...briefCues];
+  return briefRequired;
 }
 
 // Editorial limits for each prompt body. Midjourney parameters are appended separately.

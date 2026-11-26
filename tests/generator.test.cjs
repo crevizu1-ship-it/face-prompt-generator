@@ -549,10 +549,29 @@ test('the four head turns are reserved when the learning list has only four scen
   await page.locator('#count').fill('4');
   await page.locator('#recommend').click();
   const bodies = await prompts(page);
-  for (const angle of [/left 3\/4/, /right 3\/4/, /chin up/, /chin down/]) {
+  for (const angle of [/left 3\/4/, /right 3\/4/, /eye-level front.*head tilted.*back/, /chin down/]) {
     assert.equal(bodies.filter(body => angle.test(body)).length, 1, String(angle));
   }
   assert.ok(bodies.every(body => !/(?:high|low)-angle/.test(body)));
+});
+
+test('Midjourney keeps the eye-level camera and raised head with long clothing and lighting cues', async t => {
+  const page = await openPage(t);
+  await selectOnly(page, 1, 9);
+  await bucket(page, 1).locator('.choice input').nth(10).check();
+  await selectOnly(page, 2, 38); // black zip-up hoodie
+  await selectOnly(page, 3, 17); // subtle asymmetric smile
+  await selectOnly(page, 4, 37); // city street
+  await page.locator('#ratio').fill('0');
+  await page.locator('#count').fill('8');
+  await page.locator('#recommend').click();
+  for (const text of await prompts(page)) {
+    const body = text.replace(/ --raw --s 0$/, '');
+    assert.match(body, /eye-level front, head tilted.*back/);
+    assert.match(body, /black .*hoodie.*hood down/);
+    assert.match(body, /urban bounce light|overcast light|open-shade light|soft street light/);
+    assert.ok(body.length <= promptLimits[0], body);
+  }
 });
 
 test('the first Soul ID list labels a neutral close-up set and a front full-height shot', async t => {
