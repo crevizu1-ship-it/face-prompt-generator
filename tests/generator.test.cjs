@@ -246,6 +246,86 @@ test('controls and results fit mobile and desktop in both color schemes', async 
   }
 });
 
+test('Midjourney clipboard bundles expand to exactly the original scenes for each plan', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText: async text => { window.copiedText = text; }}
+  }));
+  await page.locator('#count').fill('41');
+  await page.locator('.advanced summary').click();
+  await page.locator('#prefix').fill('editorial, natural');
+  await page.locator('#params').fill('--ar 4:5 --raw');
+  for (const limit of [4, 10, 40]) {
+    await generate(page);
+    await page.locator('#mjCopyMode').selectOption(String(limit));
+    const rows = await prompts(page);
+    await page.locator('#params').fill('--other'); // unsaved edits must not affect the existing batch
+    for (let i = 0; i < rows.length; i += limit) {
+      await page.locator('#mjNext').click();
+      const clipboard = await page.evaluate(() => window.copiedText);
+      const expected = rows.slice(i, i + limit);
+      if (expected.length === 1) {
+        assert.equal(clipboard, expected[0]);
+      } else {
+        const match = clipboard.match(/^\{(.+)\} (--ar 4:5 --raw)$/);
+        assert.ok(match, clipboard);
+        const decoded = match[1].split(/(?<!\\), /).map(body => body.replaceAll('\\,', ',') + ' ' + match[2]);
+        assert.deepEqual(decoded, expected);
+      }
+    }
+    assert.ok(await page.locator('#mjNext').isDisabled());
+    assert.equal((await page.locator('.copy.copied').count()), 41);
+    await page.locator('#params').fill('--ar 4:5 --raw');
+  }
+});
+
+test('next uncopied skips previously copied scenes, supports Relax and retains position on failure', async t => {
+  const page = await openPage(t);
+  await page.locator('#count').fill('6');
+  await generate(page);
+  const rows = await prompts(page);
+  await page.evaluate(() => {
+    window.deny = false;
+    Object.defineProperty(navigator, 'clipboard', {value:{writeText: async text => {
+      if (window.deny) throw Error('Denied');
+      window.copiedText = text;
+    }}});
+    document.execCommand = () => false;
+  });
+  await page.locator('.copy').nth(1).click();
+  await page.locator('#mjCopyMode').selectOption('1');
+  await page.locator('#mjNext').click();
+  assert.equal(await page.evaluate(() => window.copiedText), rows[0]);
+  await page.evaluate(() => { window.deny = true; });
+  await page.locator('#mjNext').click();
+  assert.equal(await page.locator('.copy.copied').count(), 2);
+  await page.evaluate(() => { window.deny = false; });
+  await page.locator('#mjNext').click();
+  assert.equal(await page.evaluate(() => window.copiedText), rows[2]);
+  await model(page, 'GPT Image').check();
+  await model(page, 'Midjourney').uncheck();
+  assert.equal(await page.locator('#mjNext').isVisible(), false);
+  await model(page, 'Midjourney').check();
+  await page.locator('#mjCopyMode').selectOption('4');
+  await page.locator('#mjNext').click();
+  assert.equal(await page.locator('.copy.copied').count(), 6);
+  assert.ok(await page.locator('#mjNext').isDisabled());
+});
+
+test('custom Midjourney permutations or repeat flags remain available as individual prompts', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async text => { window.copiedText = text; }}}));
+  await page.locator('.advanced summary').click();
+  for (const params of ['--ar {1:1,4:5}', '--repeat 2', '--relax']) {
+    await page.locator('#params').fill(params);
+    await generate(page);
+    await page.locator('#mjCopyMode').selectOption('10');
+    await page.locator('#mjNext').click();
+    assert.equal(await page.evaluate(() => window.copiedText), (await prompts(page))[0]);
+    assert.equal(await page.locator('.copy.copied').count(), 1);
+  }
+});
+
 test('five model formats share the current scene, work offline and export by model', async t => {
   const page = await openPage(t);
   await page.context().setOffline(true);

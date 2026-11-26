@@ -5,6 +5,7 @@
 .environment{border:0;padding:0;margin:0;min-width:0}.environment legend{padding:0;font-weight:600}.environment .actions{gap:6px 12px}.environment label{font-weight:500;white-space:nowrap}.controls{margin-bottom:15px}.derived{color:var(--muted);font-size:11px;margin-bottom:4px}
 .model-picker{margin:12px 0 4px}.model-picker .actions{margin:4px 0}.result-row{grid-template-columns:24px minmax(0,1fr)}.variant{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start}.variant+.variant{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}.variant .copy{grid-column:2;grid-row:1 / span 2}.model-name{font-weight:700}.variant .prompt{grid-column:1}button:disabled{opacity:.5;cursor:default}
 button.copied{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.mj-tools{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:8px}.mj-tools .actions{align-items:center;gap:8px}.mj-tools select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px;max-width:100%}.mj-tools a{color:var(--accent)}
 </style></head><body><main>
 <header><div class="eyebrow">FACE DATASET STUDIO</div><h1>얼굴 학습 프롬프트 생성기</h1><p class="muted">캐릭터 얼굴 학습용 모델별 랜덤 프롬프트 · <a id="offlineDownload" href="./index.html" download="face-prompt-generator.html" style="color:var(--accent)">오프라인용 HTML 저장</a></p></header>
 <div class="metrics" id="metrics"></div>
@@ -48,6 +49,20 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
 <section>
   <div class="result-head"><div><h2>03 · 생성 결과</h2><p class="muted" id="info"></p></div><div class="actions"><button id="copyAll">전체 복사</button><button id="save">TXT 저장</button></div></div>
   <fieldset class="environment model-picker"><legend>비교할 이미지 모델</legend><div class="actions" id="models"></div></fieldset>
+  <div class="mj-tools" id="mjTools" hidden>
+    <label for="mjCopyMode">미드저니 복사 방식</label>
+    <div class="actions">
+      <select id="mjCopyMode">
+        <option value="4">Basic · 최대 4개씩</option>
+        <option value="10">Standard · 최대 10개씩</option>
+        <option value="40">Pro / Mega · 최대 40개씩</option>
+        <option value="1">한 개씩 · Relax 포함</option>
+      </select>
+      <button id="mjNext"></button><span id="mjProgress" class="muted"></span>
+      <a href="https://www.midjourney.com/imagine" target="_blank" rel="noopener noreferrer">미드저니 열기 ↗</a>
+    </div>
+    <p class="muted" id="mjHelp"></p>
+  </div>
   <p id="status" class="status" role="status" aria-live="polite"></p><div id="results" class="results"></div>
 </section><footer class="muted">동일 인물 참조 이미지는 사용할 이미지 모델에 별도로 첨부하세요. 정확한 각도와 얼굴 일치 여부는 생성 후 검수해야 합니다.</footer></main>
 <script>
@@ -152,9 +167,8 @@ function midjourneyPrompt(shot, options) {
   const face = expression === neutral ? 'neutral expression, closed lips' : expression.en.replace('very subtle ', 'subtle ');
   const crop = frame === closeUp ? 'face close-up' : 'waist-up';
   const subject = options.prefix === $('prefix').defaultValue ? crop + ' photo' : joinPhrases([options.prefix, crop + ' portrait']);
-  const body = joinPhrases([subject, face, pose,
+  return joinPhrases([subject, face, pose,
     hair.en, outfit.en, backdrop, ...environment.map(x => x.short || x.en), options.suffix]);
-  return [body, options.params].filter(Boolean).join(' ');
 }
 
 function gptImagePrompt(shot, options) {
@@ -229,7 +243,10 @@ function build(groups, n, neutralTotal, closeTotal, options) {
     const environment = Object.values(context).filter(Boolean);
     const shot = {frame, hair, angle, outfit, expression, background, context, environment};
     const texts = Object.fromEntries(Object.entries(formatters).map(([name, format]) => [name, format(shot, options)]));
-    return {items: [frame, hair, angle, outfit, expression, background], environment, texts, copied: new Set()};
+    const mjBody = texts.Midjourney;
+    texts.Midjourney = [mjBody, options.params].filter(Boolean).join(' ');
+    return {items: [frame, hair, angle, outfit, expression, background], environment, texts,
+      mjBody, mjParams: options.params, copied: new Set()};
   });
 }
 async function copy(text) {
@@ -259,20 +276,69 @@ function updateCopyMarks() {
     button.textContent = done ? '✓ 복사됨' : '복사';
     button.setAttribute('aria-label', (Number(index) + 1) + '번 ' + model + (done ? ' 복사됨, 다시 복사' : ' 복사'));
   }
+  updateMidjourneyControls();
 }
 
-async function copyPrompts(models, index) {
+async function copyAndMark(items, models, text, bulk = false) {
   const batch = output;
-  const bulk = index === undefined;
-  const ok = await copy(bulk ? exportText(models) : batch[index].texts[models[0]]);
+  const ok = await copy(text);
   if (batch !== output) return;
   $('status').textContent = ok ? '복사 완료' : '복사가 제한되어 있습니다. 결과를 선택해 복사하거나 TXT로 저장하세요.';
   if (!ok) return;
-  for (const item of bulk ? batch : [batch[index]]) {
+  for (const item of items) {
     for (const name of models) item.copied.add(name);
   }
   if (bulk) copiedSelections.add(models.join('|'));
   updateCopyMarks();
+}
+
+function copyPrompts(models, index) {
+  if (index === undefined) return copyAndMark(output, models, exportText(models), true);
+  const item = output[index];
+  return copyAndMark([item], models, item.texts[models[0]]);
+}
+
+let copyingNext = false;
+function midjourneyQueue() {
+  const remaining = output.filter(item => !item.copied.has('Midjourney'));
+  const limit = Number($('mjCopyMode').value);
+  // Existing permutation, repeat or escape syntax must keep its original meaning.
+  const singleOnly = limit > 1 && remaining.some(item =>
+    /[{}]|(?:^|\s)--(?:r|repeat|relax)(?=\s|$)/i.test(item.texts.Midjourney) || /\\(?:,|$)/.test(item.mjBody));
+  return {remaining, next: remaining.slice(0, singleOnly ? 1 : limit), singleOnly};
+}
+
+function updateMidjourneyControls() {
+  $('mjTools').hidden = !selectedModels().includes('Midjourney');
+  if ($('mjTools').hidden) return;
+  const {remaining, next, singleOnly} = midjourneyQueue();
+  const done = output.length - remaining.length;
+  $('mjProgress').textContent = done + ' / ' + output.length + '개 복사됨';
+  const button = $('mjNext');
+  button.disabled = copyingNext || !next.length;
+  button.classList.toggle('copied', !remaining.length);
+  if (!next.length) button.textContent = '✓ 모두 복사됨';
+  else if (next.length === 1) button.textContent = '다음 미복사 항목 복사 (' + (output.indexOf(next[0]) + 1) + '번)';
+  else button.textContent = '다음 묶음 복사 (' + next.length + '개)';
+  let help = 'Fast 또는 Turbo에서 묶음을 Imagine 입력창에 붙여넣고 전송하세요. GPU 시간은 장면별로 사용됩니다.';
+  if (singleOnly) help = '현재 프롬프트에 묶음과 함께 쓰기 어려운 문법이나 모드가 있어 한 개씩 복사합니다.';
+  else if ($('mjCopyMode').value === '1') help = '복사한 항목을 Imagine 입력창에 붙여넣고 전송한 뒤, 같은 버튼으로 다음 장면을 복사하세요.';
+  $('mjHelp').textContent = help;
+}
+
+async function copyNextMidjourney() {
+  if (copyingNext) return;
+  const {next} = midjourneyQueue();
+  if (!next.length) return;
+  let text = next[0].texts.Midjourney;
+  if (next.length > 1) {
+    const alternatives = next.map(item => item.mjBody.replaceAll(',', '\\,'));
+    text = ['{' + alternatives.join(', ') + '}', next[0].mjParams].filter(Boolean).join(' ');
+  }
+  copyingNext = true;
+  $('mjNext').disabled = true;
+  try { await copyAndMark(next, ['Midjourney'], text); }
+  finally { copyingNext = false; updateMidjourneyControls(); }
 }
 function generate() {
   const n = count(), neutrals = quota(n, 'ratio'), closeUps = quota(n, 'frameRatio');
@@ -313,7 +379,7 @@ function renderResults() {
     for (const name of models) {
       const variant = make('div','variant'), button = make('button','copy','복사');
       const label = make('div','small'), text = item.texts[name];
-      const prose = name === 'Midjourney' ? text.split(/(?:^|\s)--/)[0] : text;
+      const prose = name === 'Midjourney' ? item.mjBody : text;
       label.append(make('span','model-name',name), make('span','muted',' · 본문 ' + prose.trim().split(/\s+/).length + '단어'));
       button.dataset.index = i;
       button.dataset.model = name;
@@ -347,6 +413,8 @@ for (const name of Object.keys(formatters)) {
 $('frameRatio').oninput = estimate;
 $('generate').onclick=generate;$('ratio').oninput=estimate;$('count').oninput=estimate;document.querySelectorAll('[data-count]').forEach(b=>b.onclick=()=>{$('count').value=b.dataset.count;estimate()});
 $('copyAll').onclick = () => copyPrompts(selectedModels());
+$('mjCopyMode').onchange = updateMidjourneyControls;
+$('mjNext').onclick = copyNextMidjourney;
 $('save').onclick = () => {
   const url = URL.createObjectURL(new Blob([exportText()], {type:'text/plain;charset=utf-8'}));
   const link = make('a');
