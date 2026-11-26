@@ -34,14 +34,18 @@ Fast를 선택하면 기존 목록과 추가 장면 모두 미드저니 출력 �
 
 | 모델 | 이 생성기의 출력 방식 | 공식 작성 가이드 |
 |---|---|---|
-| Midjourney | 구도·표정·포즈를 먼저 두고, 기본 문구와 긴 조명 묘사를 짧은 시각 표현으로 압축합니다. 전용 파라미터는 맨 끝에 붙입니다. | [Midjourney Prompt Basics](https://docs.midjourney.com/hc/en-us/articles/32023408776205-Prompt-Basics) |
-| GPT Image | 촬영 목표, 포즈·표정, 헤어·의상, 배경·촬영 조건을 여러 줄로 정리합니다. | [OpenAI Image prompting](https://developers.openai.com/api/docs/guides/image-prompting) |
+| Midjourney | 실사 사진·구도·인물을 첫 구절에 쓰고, 얼굴과 표정을 짧은 시각 표현으로 묘사합니다. 전용 파라미터는 맨 끝에 붙입니다. | [Midjourney Prompt Basics](https://docs.midjourney.com/hc/en-us/articles/32023408776205-Prompt-Basics) |
+| GPT Image | 어떤 인물의 실사 사진을 만들지 먼저 지시하고, 얼굴 묘사와 촬영 조건을 여러 줄로 정리합니다. | [OpenAI Image prompting](https://developers.openai.com/api/docs/guides/image-prompting) |
 | Gemini (Nano Banana) | 인물이 무엇을 입고 어떤 구도로 어디에서 촬영되는지 자연스러운 문단으로 묘사합니다. | [Google 이미지 생성 가이드](https://ai.google.dev/gemini-api/docs/image-generation) |
-| FLUX.2 | 인물과 포즈를 앞에 두고 촬영 스타일과 환경이 뒤따르는 캡션을 작성합니다. | [Black Forest Labs FLUX.2 가이드](https://docs.bfl.ai/guides/prompting_guide_flux2) |
+| FLUX.2 | 실사 인물 사진의 구도와 얼굴 특징으로 시작하는 캡션을 작성합니다. | [Black Forest Labs FLUX.2 가이드](https://docs.bfl.ai/guides/prompting_guide_flux2) |
 | Stable Diffusion XL | 구도·표정·스타일·환경을 간결한 묘사로 묶어 긍정 프롬프트 입력란에 붙여넣을 수 있게 합니다. | [Stability AI SDXL 가이드](https://stability.ai/sdxl-aws-documentation) |
 | Higgsfield Soul 2.0 | Character에서 선택한 인물의 구도·의상·표정·장소를 영어 사진 묘사로 작성합니다. | [Higgsfield Soul 사용 안내](https://higgsfield.ai/creator-hub/help-center/ai-models/how-do-i-use-soul-to-generate-images) |
 
-결과 옆에는 공백 기준 본문 단어 수가 표시됩니다. Midjourney 파라미터는 단어 수에서 제외합니다. 개별 복사는 해당 장면의 프롬프트만 복사합니다. 보관용 복사와 TXT 저장은 화면에 선택한 모델을 따르며, 여러 모델을 비교할 때는 장면 번호와 모델명도 함께 기록합니다.
+여섯 제작 툴 모두 실사 사진, 인물과 구도를 첫 구절에 둡니다. 자연스러운 피부 질감과 모공, 얼굴 방향과 표정을 먼저 묘사합니다. 학습용으로는 기준 인물과 헤어를 유지하고, Soul ID 후보에는 한 사람의 얼굴 전체가 가림 없이 보이도록 요청합니다.
+
+본문 길이는 이 생성기에서 **Midjourney 300자, GPT Image·Gemini 460자, FLUX.2 400자, SDXL·Soul 2.0 360자**로 정했습니다. 얼굴 묘사 뒤에는 조명, 사용자 추가 지시, 의상, 포즈, 배경, 시간대, 날씨 순으로 남은 공간에 맞는 항목을 넣습니다. 추가 지시는 한 줄 단위로 처리합니다. 결과에 글자 수와 단어 수, 길이 때문에 생략한 항목을 표시합니다. 미드저니 파라미터는 별도로 끝에 붙습니다.
+
+개별 복사는 해당 장면의 프롬프트만 복사합니다. 보관용 복사와 TXT 저장은 화면에 선택한 모델을 따르며, 여러 모델을 비교할 때는 장면 번호와 모델명도 함께 기록합니다.
 
 ## 얼굴 학습용 추천 생성
 
@@ -100,7 +104,7 @@ Higgsfield Soul 2.0 등 다른 제작 툴에서는 결과 상단의 **제작 툴
 | 도시 (거리·건물 외벽·옥상) | 맑은 아침, 주변 건물에서 부드럽게 반사되는 빛 |
 | 배경 전체 해제 | 배경·날씨·시간대·조명을 모두 생략합니다. |
 
-자동 선택 목록에서는 짙은 안개, 폭우, 눈보라, 강한 역광 등 얼굴을 가리거나 알아보기 어렵게 만드는 조건을 제외했습니다. 사용자가 작성한 공통 프롬프트와 촬영 조건은 각 모델 본문에 반영하고, 미드저니 파라미터 입력란은 Midjourney 결과에만 적용합니다.
+자동 선택 목록에서는 짙은 안개, 폭우, 눈보라, 강한 역광 등 얼굴을 가리거나 알아보기 어렵게 만드는 조건을 제외했습니다. 사용자가 작성한 추가 지시와 촬영 조건은 각 모델 본문에 남은 길이 안에서 반영합니다. 미드저니 파라미터 입력란은 Midjourney 결과에만 적용합니다.
 
 ## 브라우저 테스트
 
