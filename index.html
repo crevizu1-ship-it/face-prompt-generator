@@ -11,6 +11,7 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
 @media(min-width:651px){.metrics{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .generate-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 6px}.generate-actions .primary{margin:0}.generate-actions button{font-weight:700;padding:12px}.reference-help a{color:var(--accent)}@media(max-width:500px){.generate-actions{grid-template-columns:1fr}}
 .result-head{flex-wrap:wrap}.list-change{color:var(--accent);font-weight:600}
+@media(min-width:651px){.generate-actions{grid-template-columns:repeat(3,1fr)}}
 .mj-input:not(:disabled){background:var(--accent);color:var(--panel);font-weight:700}.archive{border:0;margin:8px 0 0}.archive summary{padding:0;color:var(--muted);font-size:12px}.archive button{margin-top:6px}
 </style></head><body><main>
 <header><div class="eyebrow">FACE DATASET STUDIO</div><h1>얼굴 학습 프롬프트 생성기</h1><p class="muted">캐릭터 얼굴 학습용 모델별 랜덤 프롬프트 · <a id="offlineDownload" href="./index.html" download="face-prompt-generator.html" style="color:var(--accent)">오프라인용 HTML 저장</a></p></header>
@@ -50,6 +51,7 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
 <section class="model-section">
   <h2 id="modelHeading">03 · 생성 모델</h2>
   <fieldset class="environment model-picker" aria-labelledby="modelHeading"><div class="actions" id="models"></div></fieldset>
+  <p id="soulModelHelp" class="muted reference-help" hidden>학습 후에는 Soul 2.0의 Character에서 인물을 선택하고 장면 문구를 붙여넣으세요. 참조 사진을 별도로 첨부하면 프롬프트 입력창이 비활성화됩니다. <a href="https://higgsfield.ai/creator-hub/help-center/ai-models/how-do-i-use-soul-to-generate-images" target="_blank" rel="noopener noreferrer">Soul 생성 안내 ↗</a></p>
   <div class="model-setting" id="mjPlan" hidden>
     <label for="mjCopyMode">미드저니 요금제 / 복사 방식</label>
     <select id="mjCopyMode">
@@ -76,13 +78,15 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
     </div>
   </div>
   <div class="model-setting">
-    <label><input id="clearForehead" type="checkbox" checked> 추천 생성 시 이마와 눈썹 드러내기</label>
+    <label><input id="clearForehead" type="checkbox" checked> 학습용 추천·Soul ID 후보에서 이마와 눈썹 드러내기</label>
   </div>
   <div class="generate-actions">
     <button id="generate" class="primary">랜덤 프롬프트 생성</button>
     <button id="recommend" aria-describedby="recommendHint">얼굴 학습용 추천 생성</button>
+    <button id="soulTraining" aria-describedby="soulHint">Soul ID 학습용 후보 생성</button>
   </div>
   <p id="recommendHint" class="muted">추천 생성은 기준 얼굴을 사용하고, 선택한 얼굴 방향을 고르게 배분합니다. 이마를 드러낼 때도 기준 사진의 머리 길이와 가르마를 따릅니다.</p>
+  <p id="soulHint" class="muted"></p>
 </section>
 <section>
   <div class="result-head">
@@ -102,7 +106,8 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
   </div>
   <div id="referenceHelp" class="reference-help" hidden>
     <p class="muted" id="directionSummary"></p>
-    <p class="muted">이미지를 만들 때 같은 기준 얼굴 사진을 참조로 첨부하세요. 결과를 원본과 비교해 같은 인물로 보이는 컷을 학습에 사용하세요.</p>
+    <p id="photoReference" class="muted">참조 사진을 지원하는 모델에서는 매번 같은 원본을 첨부하세요. 결과를 원본과 비교해 같은 인물로 보이는 컷을 고르세요.</p>
+    <p id="soulUpload" class="muted" hidden>이 목록을 촬영이나 후보 이미지 생성에 사용하세요. 같은 인물의 얼굴이 선명한 단독 사진 20~80장(전신 최소 1장)을 골라 Soul → Train new character에 올리세요. 가상 인물은 같은 기준 얼굴을 지원하는 모델로 후보를 준비하세요. <a href="https://higgsfield.ai/creator-hub/help-center/ai-models/how-do-i-create-and-use-a-soul-id-character" target="_blank" rel="noopener noreferrer">Soul ID 학습 안내 ↗</a></p>
     <p class="muted" id="mjReference">미드저니 입력창에서 사진을 <a href="https://docs.midjourney.com/hc/en-us/articles/36285124473997-Omni-Reference" target="_blank" rel="noopener noreferrer">V7의 Omni Reference</a> 또는 <a href="https://docs.midjourney.com/hc/en-us/articles/48495453462797-Edit-Model" target="_blank" rel="noopener noreferrer">V8.1·8.2의 Attach to prompt</a>에 넣고 자물쇠로 고정하세요.</p>
   </div>
   <p id="status" class="status" role="status" aria-live="polite"></p><div id="results" class="results"></div>
@@ -110,7 +115,7 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
     <label for="appendCount">추가할 장면 수</label><input id="appendCount" type="number" min="1" max="200" value="20">
     <button id="append">장면 더 추가</button>
   </div>
-</section><footer class="muted">동일 인물 참조 이미지는 사용할 이미지 모델에 별도로 첨부하세요. 정확한 각도와 얼굴 일치 여부는 생성 후 검수해야 합니다.</footer></main>
+</section><footer class="muted">이미지를 만들 모델에서 참조 사진이나 학습한 캐릭터를 설정하세요. 생성 후 얼굴과 각도를 확인하세요.</footer></main>
 <script>
 const library=[{"id":0,"name":"헤어","items":[{"ko":"긴 생머리","en":"long straight hair","enabled":true},{"ko":"매끈한 장발","en":"sleek long straight hair","enabled":true},{"ko":"허리 길이 생머리","en":"waist-length straight hair","enabled":true},{"ko":"중간 길이 생머리","en":"medium-length straight hair","enabled":true},{"ko":"어깨 길이 생머리","en":"shoulder-length straight hair","enabled":true},{"ko":"긴 레이어드컷","en":"long layered hair","enabled":true},{"ko":"중간 레이어드컷","en":"medium layered hair","enabled":true},{"ko":"버터플라이컷","en":"butterfly haircut","enabled":true},{"ko":"허쉬컷","en":"soft shag haircut","enabled":true},{"ko":"울프컷","en":"wolf cut","enabled":true},{"ko":"샤기컷","en":"shag haircut","enabled":true},{"ko":"히메컷","en":"hime cut","enabled":true},{"ko":"긴 S컬","en":"long S-shaped waves","enabled":true},{"ko":"굵은 웨이브","en":"long loose waves","enabled":true},{"ko":"자연스러운 웨이브","en":"natural wavy hair","enabled":true},{"ko":"물결 웨이브","en":"mermaid waves","enabled":true},{"ko":"할리우드 웨이브","en":"Hollywood waves","enabled":true},{"ko":"비치 웨이브","en":"soft beach waves","enabled":true},{"ko":"잔웨이브","en":"fine wavy hair","enabled":true},{"ko":"히피펌","en":"loose spiral curls","enabled":true},{"ko":"풍성한 곱슬머리","en":"voluminous curly hair","enabled":true},{"ko":"C컬 단발","en":"inward-curled bob","enabled":true},{"ko":"C컬 중단발","en":"shoulder-length C-curl hair","enabled":true},{"ko":"칼단발","en":"sleek blunt bob","enabled":true},{"ko":"턱선 단발","en":"chin-length bob","enabled":true},{"ko":"롱보브","en":"long bob","enabled":true},{"ko":"웨이브 단발","en":"wavy bob","enabled":true},{"ko":"프렌치 보브","en":"French bob","enabled":true},{"ko":"레이어드 단발","en":"layered bob","enabled":true},{"ko":"숏컷","en":"short cropped hair","enabled":true},{"ko":"픽시컷","en":"pixie cut","enabled":true},{"ko":"긴 머리 5:5 가르마","en":"long hair with middle part","enabled":true},{"ko":"긴 머리 7:3 가르마","en":"long hair with deep side part","enabled":true},{"ko":"한쪽 귀 뒤로 넘긴 머리","en":"hair tucked behind one ear","enabled":true},{"ko":"양쪽 귀 뒤로 넘긴 머리","en":"hair tucked behind both ears","enabled":true},{"ko":"앞머리 없는 올백","en":"slicked-back hair","enabled":true},{"ko":"일자 앞머리 장발","en":"long hair with blunt bangs","enabled":true},{"ko":"시스루뱅 장발","en":"long hair with wispy bangs","enabled":true},{"ko":"커튼뱅 장발","en":"long hair with curtain bangs","enabled":true},{"ko":"사이드뱅 장발","en":"long hair with side-swept bangs","enabled":true},{"ko":"풀뱅 단발","en":"bob with full bangs","enabled":true},{"ko":"시스루뱅 단발","en":"bob with wispy bangs","enabled":true},{"ko":"짧은 처피뱅","en":"short choppy bangs","enabled":true},{"ko":"높은 포니테일","en":"high ponytail","enabled":true},{"ko":"낮은 포니테일","en":"low ponytail","enabled":true},{"ko":"중간 높이 포니테일","en":"mid-height ponytail","enabled":true},{"ko":"사이드 포니테일","en":"side ponytail","enabled":true},{"ko":"웨이브 포니테일","en":"wavy ponytail","enabled":true},{"ko":"버블 포니테일","en":"bubble ponytail","enabled":true},{"ko":"반묶음","en":"half-up half-down hair","enabled":true},{"ko":"반묶음 웨이브","en":"half-up half-down wavy hair","enabled":true},{"ko":"반묶음 번","en":"half-up bun","enabled":true},{"ko":"높은 번","en":"high bun","enabled":true},{"ko":"낮은 번","en":"low bun","enabled":true},{"ko":"깔끔한 번","en":"sleek bun","enabled":true},{"ko":"자연스러운 번","en":"loose messy bun","enabled":true},{"ko":"양쪽 번","en":"space buns","enabled":true},{"ko":"높은 양갈래","en":"high twin tails","enabled":true},{"ko":"낮은 양갈래","en":"low twin tails","enabled":true},{"ko":"양갈래 땋은 머리","en":"twin braids","enabled":true},{"ko":"한쪽 땋은 머리","en":"side braid","enabled":true},{"ko":"프렌치 브레이드","en":"French braid","enabled":true},{"ko":"더치 브레이드","en":"Dutch braid","enabled":true},{"ko":"피쉬테일 브레이드","en":"fishtail braid","enabled":true},{"ko":"뒤로 넘긴 웨이브","en":"swept-back wavy hair","enabled":true}]},{"id":1,"name":"머리 각도","items":[
   {"ko":"정면","en":"straight-on front view, head upright","enabled":true,"direction":"정면"},
@@ -167,8 +172,10 @@ library.push({
   ],
 });
 const neutral={ko:'무표정',en:'neutral facial expression, relaxed facial muscles, closed lips'};
-const closeUp = {ko:'얼굴 클로즈업', en:'face close-up portrait'};
-const waistUp = {ko:'상반신', en:'waist-up portrait'};
+const closeUp = {ko:'얼굴 클로즈업', en:'face close-up portrait', crop:'face close-up', framing:'Frame their face in close-up.'};
+const waistUp = {ko:'상반신', en:'waist-up portrait', crop:'waist-up', framing:'Frame them from the waist up.'};
+const fullHeight = {ko:'전신', en:'full-length portrait from head to toe', crop:'head-to-toe full-length', framing:'Show the entire person from head to toe, feet in frame.'};
+const soulModel = 'Higgsfield Soul ID';
 const noBackground = {ko:'배경 미지정', en:''};
 const referenceHair = {ko:'참조 헤어 유지', en:'', reference:'same face and hairstyle as the reference image'};
 const sweptHair = {
@@ -237,7 +244,8 @@ function environmentFor(background, options) {
   return {weather: options.weather && weather, time: options.time && time, lighting: options.lighting && lighting};
 }
 const $=id=>document.getElementById(id);let output=[];
-let recommendedList = false;
+let listMode = 'random';
+const listLabels = {random:'랜덤 장면', recommended:'추천 장면', soul:'Soul ID 학습 후보'};
 let listNumber = 0;
 const copiedSelections = new Set();
 // Chrome navigates to file: links instead of downloading them. Capture the clean page before rendering.
@@ -325,6 +333,8 @@ function estimate() {
   }
   const neutrals = quota(n, 'ratio');
   const closeUps = quota(n, 'frameRatio');
+  const soulClose = quota(n - 1, 'frameRatio');
+  $('soulHint').textContent = 'Soul ID 학습용 새 목록 · 전신 1개 · 얼굴 클로즈업 ' + soulClose + '개 · 상반신 ' + (n - 1 - soulClose) + '개';
   const closePercent = Number($('frameRatio').value);
   $('ratioLabel').textContent = $('ratio').value + '%';
   $('estimate').textContent = '무표정 ' + neutrals + '개 · 미세 표정 ' + (n - neutrals) + '개';
@@ -371,7 +381,7 @@ function midjourneyPrompt(shot, options) {
     .replace('head tilted toward', 'head tilted to');
   const backdrop = background.en.replace('softly blurred ', 'blurred ').replace(/^plain (.+) studio backdrop$/, 'solid $1 backdrop');
   const face = expression === neutral ? 'neutral expression, closed lips' : expression.en.replace('very subtle ', 'subtle ');
-  const crop = frame === closeUp ? 'face close-up' : 'waist-up';
+  const crop = frame.crop;
   const subject = options.prefix === $('prefix').defaultValue ? crop + ' photo' : joinPhrases([options.prefix, crop + ' portrait']);
   return joinPhrases([subject, face, view, shot.bodyPose,
     hair.short || hair.en, outfit.en, backdrop, ...environment.map(x => x.short || x.en), options.suffix]);
@@ -397,7 +407,7 @@ function subjectDescription(shot) {
 
 function geminiPrompt(shot, options) {
   const {angle, expression, background, context} = shot;
-  const frame = shot.frame === closeUp ? 'Frame their face in close-up.' : 'Frame them from the waist up.';
+  const frame = shot.frame.framing;
   const pose = angle.en.startsWith('head turned') ? 'Their head is ' + angle.en.slice(5)
     : angle.en.startsWith('looking back') ? 'They are ' + angle.en
     : 'Use ' + withArticle(angle.en);
@@ -429,12 +439,23 @@ function sdxlPrompt(shot, options) {
     background.en, ...environment.map(x => x.en), options.suffix]);
 }
 
+function soulPrompt(shot, options) {
+  const {frame, angle, expression, hair, outfit, background, environment} = shot;
+  const scene = joinPhrases([background.en, ...environment.map(item => item.en)]);
+  return [
+    sentence('A ' + frame.en + ' of ' + (options.soulTraining ? 'one person' : 'the selected character') + ' wearing ' + withArticle(outfit.en)),
+    sentence(joinPhrases([angle.en, expression.en, shot.bodyPose, hair.en])),
+    sentence(scene), sentence(options.prefix), sentence(options.soulDetails),
+  ].filter(Boolean).join(' ');
+}
+
 const formatters = {
   Midjourney: midjourneyPrompt,
   'GPT Image': gptImagePrompt,
   'Gemini (Nano Banana)': geminiPrompt,
   'FLUX.2': fluxPrompt,
   'Stable Diffusion XL': sdxlPrompt,
+  [soulModel]: soulPrompt,
 };
 
 function build(groups, n, neutralTotal, closeTotal, options) {
@@ -443,7 +464,8 @@ function build(groups, n, neutralTotal, closeTotal, options) {
   const angles = options.recommended ? recommendedAngles(angle, n, options.previous) : balanced(angle, n);
   const outfits = balanced(outfit, n);
   const expressions = shuffle([...Array(neutralTotal).fill(neutral), ...balanced(expression, n - neutralTotal)]);
-  const frames = shuffle([...Array(closeTotal).fill(closeUp), ...Array(n - closeTotal).fill(waistUp)]);
+  const frames = shuffle([...Array(closeTotal).fill(closeUp),
+    ...Array(n - closeTotal - options.fullShots).fill(waistUp), ...Array(options.fullShots).fill(fullHeight)]);
   const shoulderPoses = poses.filter(pose => !pose.waistOnly);
   const closeUpPoses = !options.recommended && shoulderPoses.length ? balanced(shoulderPoses, closeTotal) : [];
   const waistUpPoses = poses.length ? balanced(poses, n - closeTotal) : [];
@@ -590,9 +612,12 @@ async function copyNextMidjourney() {
   try { await copyAndMark(next, ['Midjourney'], text); }
   finally { pendingBundleCopies.delete(batch); updateMidjourneyControls(); }
 }
-function generate(append = false, recommended = false) {
+function generate(append = false, mode = 'random') {
+  const recommended = mode !== 'random';
+  const soulTraining = mode === 'soul';
+  const fullShots = soulTraining && !append ? 1 : 0;
   const control = append ? 'appendCount' : 'count';
-  const n = count(control), neutrals = quota(n, 'ratio'), closeUps = quota(n, 'frameRatio');
+  const n = count(control), neutrals = quota(n, 'ratio'), closeUps = quota(n - fullShots, 'frameRatio');
   const groups = library.map(selected);
   $(control).value = n;
   estimate();
@@ -601,18 +626,20 @@ function generate(append = false, recommended = false) {
     return;
   }
   const hair = $('clearForehead').checked ? sweptHair : referenceHair;
+  const details = joinPhrases([$('suffix').value.trim(), soulTraining && 'single subject, entire face in frame and unobstructed']);
   const scenes = build(groups, n, neutrals, closeUps, {
-    recommended, referenceHair: hair, previous: append ? output : [],
+    recommended, referenceHair: hair, previous: append ? output : [], fullShots, soulTraining,
     weather: $('useWeather').checked, time: $('useTime').checked, lighting: $('useLighting').checked,
     prefix: $('prefix').value.trim(), params: $('params').value.trim(),
-    suffix: joinPhrases([$('suffix').value.trim(), recommended && hair.reference]),
+    suffix: joinPhrases([details, recommended && hair.reference]),
+    soulDetails: joinPhrases([details, recommended && hair === sweptHair && "preserve the character's hair color, length and parting"]),
   });
   const start = append ? output.length : 0;
   if (append) output.push(...scenes);
   else {
     output = scenes;
     $('archive').open = false;
-    recommendedList = recommended;
+    listMode = mode;
     listNumber++;
     $('appendCount').value = n;
   }
@@ -620,23 +647,26 @@ function generate(append = false, recommended = false) {
   const total = output.length;
   $('listChange').textContent = '목록 #' + listNumber + ' · ' + (append
     ? (n === 1 ? total : (start + 1) + '–' + total) + '번 추가'
-    : (recommended ? '추천 장면 ' : '랜덤 장면 ') + total + '개 새로 생성');
+    : listLabels[mode] + ' ' + total + '개 새로 생성');
   const neutralTotal = output.filter(item => item.items.includes(neutral)).length;
   const closeTotal = output.filter(item => item.items.includes(closeUp)).length;
+  const fullTotal = output.filter(item => item.items.includes(fullHeight)).length;
   $('info').textContent = '장면 ' + total + '개 · 무표정 ' + neutralTotal + '개 · 미세 표정 ' + (total - neutralTotal)
-    + '개 · 얼굴 클로즈업 ' + closeTotal + '개 · 상반신 ' + (total - closeTotal) + '개';
-  $('referenceHelp').hidden = !recommendedList;
-  if (recommendedList) {
+    + '개 · 얼굴 클로즈업 ' + closeTotal + '개 · 상반신 ' + (total - closeTotal - fullTotal) + '개'
+    + (fullTotal ? ' · 전신 ' + fullTotal + '개' : '');
+  $('referenceHelp').hidden = !recommended;
+  $('soulUpload').hidden = !soulTraining;
+  if (recommended) {
     const counts = directionCounts(output);
     $('directionSummary').textContent = '추천 생성 · ' + faceDirections.map(direction => direction + ' ' + counts[direction] + '개').join(' · ');
   }
-  $('append').textContent = recommendedList ? '추천 장면 더 추가' : '장면 더 추가';
+  $('append').textContent = (recommended ? listLabels[mode] : '장면') + ' 더 추가';
   renderResults(start);
 }
 
 function clearResults() {
   output = [];
-  recommendedList = false;
+  listMode = 'random';
   copiedSelections.clear();
   $('info').textContent = '';
   $('directionSummary').textContent = '';
@@ -652,6 +682,8 @@ function selectedModels() {
 
 function renderResults(start = 0) {
   const models = selectedModels();
+  $('soulModelHelp').hidden = !models.includes(soulModel);
+  $('photoReference').hidden = !models.some(name => name !== soulModel);
   $('mjReference').hidden = !models.includes('Midjourney');
   $('copyAll').hidden = models.includes('Midjourney');
   const results = $('results');
@@ -707,13 +739,14 @@ for (const name of Object.keys(formatters)) {
 }
 $('frameRatio').oninput = estimate;
 $('generate').onclick = () => generate();
-$('recommend').onclick = () => generate(false, true);
+$('recommend').onclick = () => generate(false, 'recommended');
+$('soulTraining').onclick = () => generate(false, 'soul');
 $('ratio').oninput = estimate;
 $('count').oninput = estimate;
 for (const id of ['count', 'appendCount']) {
   $(id).onchange = () => { $(id).value = count(id); estimate(); };
 }
-$('append').onclick = () => generate(true, recommendedList);
+$('append').onclick = () => generate(true, listMode);
 $('clean').onclick = clearResults;
 $('copyAll').onclick = () => copyPrompts(selectedModels());
 $('copyArchive').onclick = () => copyPrompts(selectedModels());
