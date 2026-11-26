@@ -181,9 +181,9 @@ library.push({
   ],
 });
 const neutral={ko:'무표정',en:'neutral facial expression, relaxed facial muscles, closed lips'};
-const closeUp = {ko:'얼굴 클로즈업', en:'face close-up portrait', crop:'face close-up'};
+const closeUp = {ko:'얼굴 클로즈업', en:'face close-up portrait', crop:'full-head close-up'};
 const waistUp = {ko:'상반신', en:'waist-up portrait', crop:'waist-up'};
-const fullHeight = {ko:'전신', en:'full-length portrait from head to toe', crop:'head-to-toe full-length'};
+const fullHeight = {ko:'전신', en:'full-length portrait from head to toe', crop:'head-to-toe'};
 const soulModel = 'Higgsfield Soul 2.0';
 const noBackground = {ko:'배경 미지정', en:''};
 const referenceHair = {ko:'참조 헤어 유지', en:'keep the same hairstyle'};
@@ -401,7 +401,7 @@ const withArticle = text => (/^[aeiou]/i.test(text) ? 'an ' : 'a ') + text;
 function midjourneyRequired(shot, options, limit) {
   const {frame, angle, expression, hair, outfit} = shot;
   const light = options.recommended && shot.context.lighting?.short;
-  const crop = frame === fullHeight ? 'head-to-toe' : frame.crop;
+  const crop = frame.crop + ', headroom';
   const view = angle.mjHeadLift || angle.en
     .replace('straight-on front view, head upright', 'front view')
     .replace(/three-quarter(?: view| portrait)?/, '3/4')
@@ -439,21 +439,26 @@ function midjourneyRequired(shot, options, limit) {
   const shortHair = hairstyle.replace('full face, forehead and brows clear', 'face, forehead, brows clear')
     .replace('full face clear', 'clear face');
   const compactRequired = [subject, shortView, wardrobe, crop, 'natural skin', shortFace, shortHair, light];
-  if (frame === closeUp && joinPhrases(compactRequired).length > limit) compactRequired[3] = 'close-up';
-  if ((!light && !angle.mjHeadLift) || joinPhrases(compactRequired).length <= limit) return compactRequired;
+  if (joinPhrases(compactRequired).length <= limit) return compactRequired;
 
   const shortWardrobe = wardrobe.replace('button-up shirt', 'button-up')
     .replace('zip hoodie', 'hoodie').replace(' knit sweater', ' sweater');
   const clearFace = shortHair.replace('face, forehead, brows clear', 'face/forehead/brows clear');
   const briefView = shortView.replace('profile, chin', 'profile chin');
   const briefFace = expression === neutral ? 'neutral' : shortFace.replace('eyebrow', 'brow').replace('shy closed smile', 'shy smile');
-  const briefCrop = frame === fullHeight ? 'full-body' : compactRequired[3];
   const briefSubject = options.recommended ? 'Photoreal, same face' : 'Photoreal';
   const briefCues = [briefFace, clearFace, light];
-  const briefOpening = [briefSubject, briefView, shortWardrobe, briefCrop];
-  const briefRequired = [...briefOpening, 'natural skin', ...briefCues];
-  if (angle.mjHeadLift && joinPhrases(briefRequired).length > limit) return [...briefOpening, ...briefCues];
-  return briefRequired;
+  const briefOpening = [briefSubject, briefView, shortWardrobe];
+  const briefRequired = [...briefOpening, crop, 'natural skin', ...briefCues];
+  if (joinPhrases(briefRequired).length <= limit) return briefRequired;
+
+  const framings = frame === closeUp ? [crop, 'full headshot, headroom', frame.crop] : [crop, frame.crop];
+  for (const framing of framings) {
+    const candidate = [...briefOpening, framing, ...briefCues];
+    if (joinPhrases(candidate).length <= limit) return candidate;
+  }
+  const smallestCrop = frame === closeUp ? 'whole head' : frame.crop;
+  return [...briefOpening, smallestCrop, ...briefCues];
 }
 
 // Editorial limits for each prompt body. Midjourney parameters are appended separately.
