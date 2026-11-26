@@ -5,6 +5,7 @@
 .environment{border:0;padding:0;margin:0;min-width:0}.environment legend{padding:0;font-weight:600}.environment .actions{gap:6px 12px}.environment label{font-weight:500;white-space:nowrap}.controls{margin-bottom:15px}.derived{color:var(--muted);font-size:11px;margin-bottom:4px}
 .model-picker{margin:12px 0 4px}.model-picker .actions{margin:4px 0}.result-row{grid-template-columns:24px minmax(0,1fr)}.variant{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start}.variant+.variant{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}.variant .copy{grid-column:2;grid-row:1 / span 2}.model-name{font-weight:700}.variant .prompt{grid-column:1}button:disabled{opacity:.5;cursor:default}
 button.copied{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.baseline-label{color:var(--accent);font-weight:700;margin-left:8px}
 .append-controls{align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--line)}.append-controls input[type=number]{width:76px}
 .mj-tools{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:8px}.mj-tools .actions{align-items:center;gap:8px}.model-setting select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px;max-width:100%}.mj-tools a{color:var(--accent)}
 .model-setting{margin-top:12px}.model-setting label{display:block}.model-setting input[type=number]{width:86px}.model-setting .actions{align-items:center}.model-setting .quick{margin:0}.model-section .primary{margin-bottom:0}.controls .environment{grid-column:1/-1}@media(min-width:651px){.controls{grid-template-columns:1fr 1fr}}
@@ -189,7 +190,7 @@ const referenceHair = {ko:'참조 헤어 유지', en:'keep the same hairstyle'};
 const sweptHair = {ko:'이마·눈썹 드러냄', en:'keep hair color, length and part, forehead, hairline and brows visible',
   short:'same hair color/length/part, clear forehead, hairline and brows'};
 const faceDirections = ['정면', '왼쪽 사선', '오른쪽 사선', '왼쪽 옆얼굴', '오른쪽 옆얼굴'];
-const basicAngles = new Set(['정면', '왼쪽 3/4', '오른쪽 3/4', '완전 왼쪽 측면', '완전 오른쪽 측면']);
+const basicAngles = ['왼쪽 3/4', '오른쪽 3/4', '정면 턱 살짝 위', '정면 턱 살짝 아래', '정면', '완전 왼쪽 측면', '완전 오른쪽 측면'];
 
 const clear = {ko:'맑음', en:'clear skies'};
 const partlyCloudy = {ko:'구름 조금', en:'partly cloudy skies'};
@@ -206,45 +207,50 @@ function scene(weather, time, ko, en, short = en) {
 }
 const scenes = {
   studio: [
-    scene(null, null, '정면 소프트박스', 'soft frontal softbox lighting'),
-    scene(null, null, '반사판 보조광', 'balanced studio light with reflector fill', 'studio light, reflector fill'),
-    scene(null, null, '클램셸 조명', 'soft clamshell lighting'),
+    scene(null, null, '정면 소프트박스', 'soft frontal softbox lighting', 'front softbox'),
+    scene(null, null, '왼쪽 소프트박스와 보조광', 'left softbox lighting with gentle fill on the right', 'left softbox fill'),
+    scene(null, null, '오른쪽 소프트박스와 보조광', 'right softbox lighting with gentle fill on the left', 'right softbox fill'),
+    scene(null, null, '클램셸 조명', 'soft clamshell lighting with lower reflector fill', 'clamshell light'),
   ],
   indoor: [
-    scene(null, morning, '부드러운 실내 확산광', 'soft diffused indoor light'),
-    scene(null, day, '고른 실내 반사광', 'even bounced interior light'),
-    scene(null, afternoon, '은은한 실내 보조광', 'gentle interior fill light'),
-    scene(null, evening, '따뜻한 실내 정면광', 'soft warm interior light on the face', 'warm frontal indoor light'),
+    scene(null, morning, '부드러운 실내 확산광', 'soft diffused indoor light', 'diffuse room light'),
+    scene(null, day, '천장 반사광', 'soft ceiling-bounced indoor light', 'ceiling bounce'),
+    scene(null, afternoon, '측면 벽 반사광', 'soft lateral light bounced from an interior wall', 'wall bounce light'),
+    scene(null, evening, '따뜻한 램프 보조광', 'warm lamp light with gentle frontal fill', 'warm lamp light'),
   ],
   window: [
-    scene({ko:'창밖 맑음', en:'clear skies outside the window'}, morning, '부드러운 창가광', 'soft window light with gentle fill', 'soft window light, fill'),
-    scene({ko:'창밖 흐림', en:'overcast skies outside the window'}, day, '고른 창가 확산광', 'even diffused window light'),
-    scene({ko:'창밖 가벼운 비', en:'light rain outside the window'}, afternoon, '저대비 창가광', 'low-contrast window light across the face', 'low-contrast window light'),
+    scene({ko:'창밖 맑음', en:'clear skies outside the window'}, morning, '왼쪽 창가광', 'soft window light from the left with subtle fill', 'left window light'),
+    scene({ko:'창밖 흐림', en:'overcast skies outside the window'}, day, '창가 확산광', 'even diffused window light', 'diffuse window'),
+    scene({ko:'창밖 가벼운 비', en:'light rain outside the window'}, afternoon, '오른쪽 창가광', 'soft window light from the right with gentle fill', 'right window light'),
   ],
   nature: [
-    scene(clear, morning, '부드러운 자연광', 'soft natural light across the face', 'soft natural light'),
-    scene(partlyCloudy, afternoon, '그늘의 확산광', 'gentle diffused light in open shade', 'diffused open-shade light'),
-    scene(overcast, day, '저대비 확산광', 'low-contrast diffused natural light'),
-    scene(clear, goldenHour, '따뜻한 정면광', 'warm soft light from in front of the subject', 'warm soft frontal light'),
+    scene(clear, morning, '아침 측면광', 'soft morning side light with reflector fill', 'morning side light'),
+    scene(partlyCloudy, afternoon, '열린 그늘의 빛', 'gentle diffused light in open shade', 'open-shade light'),
+    scene(overcast, day, '흐린 날 확산광', 'low-contrast diffused natural light', 'overcast light'),
+    scene(clear, goldenHour, '따뜻한 해질녘 빛', 'warm soft light from in front of the subject', 'warm sunset light'),
   ],
   coast: [
-    scene(clear, morning, '은은한 해안 반사광', 'gentle reflected coastal light'),
+    scene(clear, morning, '모래 반사광', 'gentle sunlight reflected from sand', 'sand bounce light'),
     scene(partlyCloudy, day, '부드러운 해안광', 'soft coastal light with even facial exposure', 'even coastal light'),
-    scene(overcast, afternoon, '바닷가 확산광', 'diffused seaside light'),
-    scene(clear, goldenHour, '따뜻한 해안 정면광', 'soft warm coastal light on the face', 'warm frontal coastal light'),
+    scene(overcast, afternoon, '바닷가 확산광', 'diffused seaside light', 'overcast light'),
+    scene(clear, goldenHour, '따뜻한 해안 정면광', 'soft warm coastal light on the face', 'warm sunset light'),
   ],
   city: [
-    scene(clear, morning, '건물 반사광', 'soft light reflected from nearby buildings', 'reflected urban light'),
-    scene(overcast, day, '고른 도심 확산광', 'diffused urban light with even facial exposure', 'even diffused urban light'),
-    scene(partlyCloudy, afternoon, '부드러운 도심광', 'soft urban light with gentle fill', 'soft urban fill light'),
-    scene(clear, evening, '은은한 거리 보조광', 'soft street lighting with frontal fill', 'street lighting, frontal fill'),
+    scene(clear, morning, '건물 반사광', 'soft light reflected from nearby buildings', 'urban bounce light'),
+    scene(overcast, day, '흐린 도심 확산광', 'diffused urban light with even facial exposure', 'overcast light'),
+    scene(partlyCloudy, afternoon, '건물 그늘의 빛', 'soft light in open building shade', 'open-shade light'),
+    scene(clear, evening, '거리 조명과 보조광', 'soft street lighting with frontal fill', 'soft street light'),
   ],
 };
 
-function environmentFor(background, options) {
+function environmentFor(background, options, scenePools) {
   if (!background.group) return {};
-  const pool = scenes[background.group];
-  const {weather, time, lighting} = pool[Math.floor(Math.random() * pool.length)];
+  let pool = scenePools.get(background.group);
+  if (!pool?.length) {
+    pool = shuffle(scenes[background.group]);
+    scenePools.set(background.group, pool);
+  }
+  const {weather, time, lighting} = pool.pop();
   return {weather: options.weather && weather, time: options.time && time, lighting: options.lighting && lighting};
 }
 const $=id=>document.getElementById(id);let output=[];
@@ -363,21 +369,25 @@ function directionCounts(scenes) {
   return counts;
 }
 
-function recommendedAngles(angles, n, previous) {
+function recommendedAngles(angles, n, previous, baseline) {
   const counts = directionCounts(previous);
   const uses = new Map(angles.map(angle => [angle, 0]));
   for (const {angle} of previous) {
     if (uses.has(angle)) uses.set(angle, uses.get(angle) + 1);
   }
   const directions = faceDirections.filter(direction => angles.some(angle => angle.direction === direction));
-  const choices = [];
-  for (let i = 0; i < n; i++) {
+  const choices = baseline.slice();
+  for (const angle of choices) {
+    counts[angle.direction]++;
+    uses.set(angle, uses.get(angle) + 1);
+  }
+  for (let i = choices.length; i < n; i++) {
     const minimum = Math.min(...directions.map(direction => counts[direction]));
     const [direction] = shuffle(directions.filter(direction => counts[direction] === minimum));
     const variants = angles.filter(angle => angle.direction === direction);
     const leastUsed = Math.min(...variants.map(angle => uses.get(angle)));
     const candidates = variants.filter(angle => uses.get(angle) === leastUsed);
-    const angle = (!counts[direction] && candidates.find(item => basicAngles.has(item.ko))) || shuffle(candidates)[0];
+    const angle = shuffle(candidates)[0];
     counts[direction]++;
     uses.set(angle, uses.get(angle) + 1);
     choices.push(angle);
@@ -390,6 +400,7 @@ const withArticle = text => (/^[aeiou]/i.test(text) ? 'an ' : 'a ') + text;
 
 function midjourneyRequired(shot, options, limit) {
   const {frame, angle, expression, hair, outfit} = shot;
+  const light = options.recommended && shot.context.lighting?.short;
   const crop = frame === fullHeight ? 'head-to-toe' : frame.crop;
   const view = angle.en
     .replace('straight-on front view, head upright', 'front view')
@@ -417,7 +428,7 @@ function midjourneyRequired(shot, options, limit) {
     .replace('zip-up hoodie', 'zip hoodie')
     .replace(' over a plain top', '');
   const subject = options.recommended ? 'Photorealistic, same person' : 'Photorealistic';
-  const required = [subject, view, wardrobe, crop, 'natural skin', face, hairstyle];
+  const required = [subject, view, wardrobe, crop, 'natural skin', face, hairstyle, light];
   if (joinPhrases(required).length <= limit) return required;
 
   const shortView = view.replace(/^front view, /, 'front, ')
@@ -427,9 +438,17 @@ function midjourneyRequired(shot, options, limit) {
     .replace('closed-mouth smile', 'closed smile');
   const shortHair = hairstyle.replace('full face, forehead and brows clear', 'face, forehead, brows clear')
     .replace('full face clear', 'clear face');
-  const compactRequired = [subject, shortView, wardrobe, crop, 'natural skin', shortFace, shortHair];
+  const compactRequired = [subject, shortView, wardrobe, crop, 'natural skin', shortFace, shortHair, light];
   if (frame === closeUp && joinPhrases(compactRequired).length > limit) compactRequired[3] = 'close-up';
-  return compactRequired;
+  if (!light || joinPhrases(compactRequired).length <= limit) return compactRequired;
+
+  const shortWardrobe = wardrobe.replace('button-up shirt', 'button-up')
+    .replace('zip hoodie', 'hoodie').replace(' knit sweater', ' sweater');
+  const clearFace = shortHair.replace('face, forehead, brows clear', 'face/forehead/brows clear');
+  const briefView = shortView.replace('profile, chin', 'profile chin');
+  const briefFace = expression === neutral ? 'neutral' : shortFace.replace('eyebrow', 'brow').replace('shy closed smile', 'shy smile');
+  const briefCrop = frame === fullHeight ? 'full-body' : compactRequired[3];
+  return ['Photoreal, same face', briefView, shortWardrobe, briefCrop, 'natural skin', briefFace, clearFace, light];
 }
 
 // Editorial limits for each prompt body. Midjourney parameters are appended separately.
@@ -466,7 +485,7 @@ function renderPrompt(name, shot, options) {
   const light = context.lighting && (compact ? context.lighting.short : context.lighting.en);
   const backdrop = midjourney ? background.en.replace('softly blurred ', 'blurred ').replace(/^plain (.+) studio backdrop$/, 'solid $1 backdrop') : background.en;
   const optional = [
-    ['조명', light && (compact ? light : 'Use ' + light)],
+    ['조명', light && !(midjourney && options.recommended) && (compact ? light : 'Use ' + light)],
     ...options.prefix.split('\n').map(line => ['공통 추가 지시', line.trim()]),
     ...options.suffix.split('\n').map(line => ['추가 촬영 조건', line.trim()]),
     ['의상', !midjourney && (compact ? outfit.en : 'The subject wears ' + withArticle(outfit.en))],
@@ -490,25 +509,47 @@ function renderPrompt(name, shot, options) {
 function build(groups, n, neutralTotal, closeTotal, options) {
   const [hair, angle, outfit, expression, background, poses] = groups;
   const hairstyles = options.recommended ? Array(n).fill(options.referenceHair) : balanced(hair, n);
-  const angles = options.recommended ? recommendedAngles(angle, n, options.previous) : balanced(angle, n);
+  const baseline = options.recommended && !options.previous.length
+    ? basicAngles.map(name => angle.find(item => item.ko === name)).filter(Boolean).slice(0, n)
+    : [];
+  const fullIndex = options.fullShots ? Math.min(baseline.length, n - 1) : -1;
+  const front = angle.find(item => item.ko === '정면');
+  if (fullIndex === baseline.length && front) baseline.push(front);
+  const baselineCount = Math.max(baseline.length, fullIndex + 1);
+  const angles = options.recommended ? recommendedAngles(angle, n, options.previous, baseline) : balanced(angle, n);
   const outfits = balanced(outfit, n);
-  const expressions = shuffle([...Array(neutralTotal).fill(neutral), ...balanced(expression, n - neutralTotal)]);
-  const frames = shuffle([...Array(closeTotal).fill(closeUp),
-    ...Array(n - closeTotal - options.fullShots).fill(waistUp), ...Array(options.fullShots).fill(fullHeight)]);
+  const baselineNeutral = Math.min(baselineCount, neutralTotal);
+  const expressions = [...Array(baselineNeutral).fill(neutral),
+    ...shuffle([...Array(neutralTotal - baselineNeutral).fill(neutral), ...balanced(expression, n - neutralTotal)])];
+  const baselineClose = Math.min(closeTotal, baselineCount - options.fullShots);
+  const otherFrames = shuffle([...Array(closeTotal - baselineClose).fill(closeUp),
+    ...Array(n - closeTotal - options.fullShots).fill(waistUp)]);
   const shoulderPoses = poses.filter(pose => !pose.waistOnly);
   const closeUpPoses = !options.recommended && shoulderPoses.length ? balanced(shoulderPoses, closeTotal) : [];
   const waistUpPoses = poses.length ? balanced(poses, n - closeTotal) : [];
   const backgrounds = background.length ? balanced(background, n) : Array(n).fill(noBackground);
+  if (baselineCount) {
+    const firstByGroup = new Map();
+    const rest = [];
+    for (const item of backgrounds) {
+      if (firstByGroup.has(item.group)) rest.push(item);
+      else firstByGroup.set(item.group, item);
+    }
+    backgrounds.splice(0, n, ...firstByGroup.values(), ...rest);
+  }
+  const scenePools = new Map();
   return Array.from({length:n}, (_, i) => {
     const hair = hairstyles[i], angle = angles[i], outfit = outfits[i];
-    const frame = frames[i], expression = expressions[i], background = backgrounds[i];
-    const context = environmentFor(background, options);
+    const frame = i === fullIndex ? fullHeight : i < baselineClose ? closeUp : otherFrames.pop();
+    const expression = expressions[i], background = backgrounds[i];
+    const context = environmentFor(background, options, scenePools);
     const environment = Object.values(context).filter(Boolean);
     const pose = (frame === closeUp ? closeUpPoses : waistUpPoses).pop();
     const view = options.recommended && angle.referenceView ? {...angle, en:angle.referenceView} : angle;
     const shot = {frame, hair, angle:view, bodyPose:pose?.en, outfit, expression, background, context};
     const prompts = Object.fromEntries(Object.keys(promptFormats).map(name => [name, renderPrompt(name, shot, options)]));
     return {items: [frame, hair, angle, pose, outfit, expression, background].filter(Boolean), angle, environment, prompts,
+      baseline: i < baselineCount,
       mjParams: options.params, copied: new Set()};
   });
 }
@@ -756,7 +797,9 @@ function renderResults(start = 0) {
   for (let i = start; i < output.length; i++) {
     const item = output[i];
     const row = make('div','result-row'), body = make('div');
-    body.append(make('div','tagline',item.items.map(x => x.ko).join(' · ')));
+    const tagline = make('div','tagline',item.items.map(x => x.ko).join(' · '));
+    if (item.baseline) tagline.append(make('span','baseline-label','기본 세트'));
+    body.append(tagline);
     if (item.environment.length) body.append(make('div','derived',item.environment.map(x => x.ko).join(' · ')));
     for (const name of models) {
       const variant = make('div','variant'), button = make('button','copy','복사');

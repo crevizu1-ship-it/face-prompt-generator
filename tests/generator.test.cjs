@@ -10,7 +10,7 @@ const site = process.env.TEST_SITE_URL || pathToFileURL(path.resolve(__dirname, 
 const framing = ['face close-up', 'waist-up'];
 const weather = /\b(?:clear|partly cloudy|overcast) skies\b|light rain outside the window/;
 const time = /\b(?:morning|daytime|late afternoon|golden hour|early evening)\b/;
-const lighting = /\b(?:light|lighting)\b(?! rain)/;
+const lighting = /\b(?:light|lighting|softbox|ceiling bounce|diffuse window)\b(?! rain)/;
 let browser;
 
 before(async () => {
@@ -67,11 +67,11 @@ test('portrait essentials lead every model and oversize extras are omitted as wh
   for (const row of await rows.all()) {
     for (const [i, prompt] of (await row.locator('.prompt').allTextContents()).entries()) {
       const body = prompt.split(' --')[0];
-      assert.match(body.slice(0, 65), /ultra-realistic|photorealistic/i);
-      const identity = i === 0 ? /same person/i : i === 5 ? /selected character/i : /reference/i;
+      assert.match(body.slice(0, 65), /ultra-realistic|photoreal/i);
+      const identity = i === 0 ? /same (?:person|face)/i : i === 5 ? /selected character/i : /reference/i;
       assert.match(body.slice(0, 120), identity);
       assert.match(body, /natural skin/i);
-      assert.match(body, i === 0 ? /face, forehead.*brows clear/i : /entire face in frame/i);
+      assert.match(body, i === 0 ? /face[,/] ?forehead.*brows clear/i : /entire face in frame/i);
       assert.match(body, /forehead.*brows/i);
       const label = await row.locator('.variant .small').nth(i).innerText();
       assert.match(label, /공통 추가 지시.*추가 촬영 조건/);
@@ -124,16 +124,16 @@ test('first batch makes Midjourney prompts for a Soul ID dataset', async t => {
   for (const row of rows) {
     const body = row.replace(/ --raw --s 0$/, '');
     assert.ok(body.length <= promptLimits[0], body);
-    assert.match(body, /^Photorealistic, same person,/);
+    assert.match(body, /^Photoreal(?:istic)?, same (?:person|face),/);
     assert.match(body, /natural skin.*face.*forehead.*brows/i);
   }
-  assert.equal(rows.filter(row => row.includes('neutral, lips closed')).length, 16);
+  assert.equal(rows.filter(row => /, neutral,/.test(row)).length, 16);
   assert.equal(rows.filter(row => /, (?:face )?close-up,/.test(row)).length, 13);
   assert.equal(rows.filter(row => row.includes(framing[1])).length, 6);
-  assert.equal(rows.filter(row => row.includes('head-to-toe')).length, 1);
+  assert.equal(rows.filter(row => /head-to-toe|full-body/.test(row)).length, 1);
   for (const row of rows) {
     assert.doesNotMatch(row, /Higgsfield|Soul ID|selected character|Train new character|head-and-shoulders|soft even lighting/i);
-    assert.match(row, /same person.*face, forehead.*--raw --s 0$/);
+    assert.match(row, /same (?:person|face).*face[,/] ?forehead.*--raw --s 0$/);
   }
   assert.match(await page.locator('#frameEstimate').innerText(), /13개.*6개.*전신 1개/);
 });
@@ -148,8 +148,8 @@ test('Midjourney keeps the selected clothing colors and types before optional in
   await page.locator('#prefix').fill('Oversize detail '.repeat(100));
   await page.locator('#recommend').click();
   const bodies = (await prompts(page)).map(text => text.replace(/ --raw --s 0$/, ''));
-  assert.equal(bodies.filter(body => /same person, front view, white T-shirt,/.test(body)).length, 6);
-  assert.equal(bodies.filter(body => /same person, front view, light blue button-up shirt,/.test(body)).length, 6);
+  assert.equal(bodies.filter(body => /same (?:person|face), front view, white T-shirt,/.test(body)).length, 6);
+  assert.equal(bodies.filter(body => /same (?:person|face), front view, light blue button-up(?: shirt)?,/.test(body)).length, 6);
   for (const body of bodies) {
     assert.ok(body.length <= promptLimits[0], body);
     assert.match(body, /natural skin/);
@@ -241,8 +241,8 @@ test('Soul ID training reserves one uncropped full-height shot and keeps it when
   assert.equal(await full.count(), 1);
   assert.equal(await full.locator('.prompt').count(), 6);
   for (const text of await full.locator('.prompt').allTextContents()) {
-    assert.match(text, /head.to.toe/i);
-    assert.match(text, /entire face in frame|face, forehead.*clear/i);
+    assert.match(text, /head.to.toe|full-body/i);
+    assert.match(text, /entire face in frame|face[,/] ?forehead.*clear/i);
     assert.doesNotMatch(text, /waist-up|waist up|face close-up|undefined/i);
   }
   const first = await prompts(page);
@@ -325,7 +325,7 @@ test('recommended generation uses the reference and balanced views across all fi
     assert.match(tag, /이마·눈썹 드러냄/);
     assert.equal(variants.length, 5);
     for (const [index, {text, label}] of variants.entries()) {
-      assert.match(text, index === 0 ? /same person/i : /reference (?:person|image)/i);
+      assert.match(text, index === 0 ? /same (?:person|face)/i : /reference (?:person|image)/i);
       if (index > 0) assert.match(text, /hair color(?:, length and part|\/length\/part)/i);
       assert.match(text, /forehead.*brows/i);
       assert.doesNotMatch(text, /undefined|null|with\s+wearing|,\s*,/);
@@ -348,14 +348,14 @@ test('forehead styling applies to new recommended scenes only and leaves selecte
   await page.locator('#count').fill('1');
   await page.locator('#recommend').click();
   const original = await prompts(page);
-  assert.match(original[0], /forehead and brows clear/);
+  assert.match(original[0], /forehead(?: and |, |\/)brows clear/);
   assert.ok(original.every(text => !text.includes('blunt bangs')));
   await setting.uncheck();
   await page.locator('#append').click();
   const appended = await prompts(page);
   assert.deepEqual(appended.slice(0, 5), original);
   for (const text of appended.slice(5)) {
-    assert.match(text, /reference (?:image|person)|same person/i);
+    assert.match(text, /reference (?:image|person)|same (?:person|face)/i);
     assert.match(text, /same hair/i);
     assert.doesNotMatch(text, /forehead|hairline|blunt bangs/i);
   }
@@ -544,6 +544,47 @@ test('framing ratios round per batch, show estimates, and allow either framing a
   }
 });
 
+test('the four head turns are reserved when the learning list has only four scenes', async t => {
+  const page = await openPage(t);
+  await page.locator('#count').fill('4');
+  await page.locator('#recommend').click();
+  const bodies = await prompts(page);
+  for (const angle of [/left 3\/4/, /right 3\/4/, /chin up/, /chin down/]) {
+    assert.equal(bodies.filter(body => angle.test(body)).length, 1, String(angle));
+  }
+  assert.ok(bodies.every(body => !/(?:high|low)-angle/.test(body)));
+});
+
+test('the first Soul ID list labels a neutral close-up set and a front full-height shot', async t => {
+  const page = await openPage(t);
+  const rows = page.locator('.result-row');
+  const baseline = rows.filter({has:page.locator('.baseline-label')});
+  assert.equal(await baseline.count(), 8);
+  const bodies = await baseline.locator('.prompt').allTextContents();
+  assert.ok(bodies.slice(0, 7).every(body => /close-up.*neutral/.test(body)));
+  assert.match(bodies.at(-1), /front view.*(?:head-to-toe|full-body).*neutral/);
+  await page.locator('#appendCount').fill('3');
+  await page.locator('#append').click();
+  assert.equal(await baseline.count(), 8);
+  assert.equal(await rows.count(), 23);
+});
+
+test('Soul ID prompts keep varied studio lighting within the Midjourney character limit', async t => {
+  const page = await openPage(t);
+  await selectOnly(page, 4, 0);
+  await page.locator('#count').fill('12');
+  await page.locator('#recommend').click();
+  const studioLights = ['front softbox', 'left softbox fill', 'right softbox fill', 'clamshell light'];
+  const bodies = (await prompts(page)).map(text => text.replace(/ --raw --s 0$/, ''));
+  for (const light of studioLights) {
+    assert.equal(bodies.filter(body => body.includes(light)).length, 3, light);
+  }
+  for (const body of bodies) assert.ok(body.length <= promptLimits[0], body);
+  await page.locator('#useLighting').uncheck();
+  await page.locator('#recommend').click();
+  assert.ok((await prompts(page)).every(text => studioLights.every(light => !text.includes(light))));
+});
+
 test('all 40 backgrounds use their own environment, with varied compatible outdoor scenes', async t => {
   const page = await openPage(t);
   await model(page, 'Stable Diffusion XL').check();
@@ -565,7 +606,7 @@ test('all 40 backgrounds use their own environment, with varied compatible outdo
         assert.match(scene, /clear skies/);
         assert.match(scene, /warm/i);
       }
-      if (/overcast skies/.test(scene)) assert.match(scene, /diffused|low-contrast/);
+      if (/overcast skies/.test(scene)) assert.match(scene, /diffused|diffuse|low-contrast|overcast light/);
       assert.doesNotMatch(scene, /backlight|silhouette|harsh|fog|storm|blizzard|downpour|neon|pitch.dark/i);
     }
     if (i >= 28) assert.ok(new Set(rows.map(row => row.split(bg + ', ')[1])).size > 1, bg);
