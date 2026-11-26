@@ -187,6 +187,49 @@ test('custom fields, single and bulk copy, and the TXT download use the displaye
   assert.equal(await readFile(await download.path(), 'utf8'), rows.join('\n\n'));
 });
 
+test('copy checkmarks track the copied scene and model, bulk selection, and new batches', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async () => {}}}));
+  const buttons = page.locator('.copy'), bulk = page.locator('#copyAll');
+  await buttons.first().click();
+  assert.match(await buttons.first().innerText(), /✓/);
+  assert.doesNotMatch(await buttons.nth(1).innerText(), /✓/);
+  await model(page, 'GPT Image').check();
+  assert.match(await buttons.first().innerText(), /✓/);
+  assert.doesNotMatch(await buttons.nth(1).innerText(), /✓/);
+  await bulk.click();
+  assert.match(await bulk.innerText(), /✓/);
+  assert.ok((await buttons.allTextContents()).every(label => label.includes('✓')));
+  await model(page, 'FLUX.2').check();
+  assert.doesNotMatch(await bulk.innerText(), /✓/);
+  assert.doesNotMatch(await buttons.nth(2).innerText(), /✓/);
+  await generate(page);
+  assert.ok((await buttons.allTextContents()).every(label => !label.includes('✓')));
+});
+
+test('denied copy stays unmarked, fallback success is marked and late success cannot mark a new batch', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {value:{writeText:async () => { throw Error('Denied'); }}, configurable:true});
+    document.execCommand = () => false;
+  });
+  const button = page.locator('.copy').first();
+  await button.click();
+  assert.doesNotMatch(await button.innerText(), /✓/);
+  assert.match(await page.locator('#status').innerText(), /복사가 제한/);
+  await page.evaluate(() => { document.execCommand = () => true; });
+  await button.click();
+  assert.match(await button.innerText(), /✓/);
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = () => new Promise(resolve => { window.finishCopy = resolve; });
+  });
+  await page.locator('#copyAll').click();
+  await generate(page);
+  await page.evaluate(() => window.finishCopy());
+  assert.doesNotMatch(await button.innerText(), /✓/);
+  assert.doesNotMatch(await page.locator('#copyAll').innerText(), /✓/);
+});
+
 test('controls and results fit mobile and desktop in both color schemes', async t => {
   const page = await openPage(t);
   for (const width of [320, 390, 1280]) {
