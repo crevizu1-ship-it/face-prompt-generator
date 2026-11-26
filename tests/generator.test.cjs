@@ -377,6 +377,75 @@ test('five model formats share the current scene, work offline and export by mod
   assert.deepEqual(await prompts(page), firstPass);
 });
 
+test('append preserves rows and copy marks while adding current settings to totals and exports', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async text => { window.copiedText = text; }}}));
+  const before = await prompts(page);
+  await page.locator('#copyAll').click();
+  await page.locator('#ratio').fill('0');
+  await page.locator('#frameRatio').fill('100');
+  await page.locator('.advanced summary').click();
+  await page.locator('#prefix').fill('additional portrait');
+  await page.locator('#appendCount').fill('3');
+  await page.locator('#append').click();
+  const after = await prompts(page);
+  assert.equal(after.length, 23);
+  assert.deepEqual(after.slice(0, 20), before);
+  assert.ok(after.slice(20).every(text => text.startsWith('additional portrait, face close-up') && !text.includes('neutral expression')));
+  assert.equal(await page.locator('.copy.copied').count(), 20);
+  assert.doesNotMatch(await page.locator('#copyAll').innerText(), /✓/);
+  assert.match(await page.locator('#info').innerText(), /장면 23개.*무표정 16개.*미세 표정 7개.*클로즈업 17개.*상반신 6개/);
+  assert.equal(await page.locator('.result-row').last().locator(':scope > .muted').innerText(), '23');
+  await model(page, 'FLUX.2').check();
+  assert.equal((await prompts(page)).length, 46);
+  await model(page, 'FLUX.2').uncheck();
+  await page.locator('#copyAll').click();
+  assert.equal(await page.evaluate(() => window.copiedText), after.join('\n\n'));
+  const downloadEvent = page.waitForEvent('download');
+  await page.locator('#save').click();
+  assert.equal(await readFile(await (await downloadEvent).path(), 'utf8'), after.join('\n\n'));
+  await selectOnly(page, 0);
+  await page.locator('#append').click();
+  assert.deepEqual(await prompts(page), after);
+  assert.match(await page.locator('#status').innerText(), /하나 이상/);
+});
+
+test('appended scenes keep their own Midjourney parameters and fresh generation replaces the list', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async text => { window.copiedText = text; }}}));
+  await page.locator('#count').fill('2');
+  await generate(page);
+  await page.locator('.advanced summary').click();
+  await page.locator('#params').fill('--ar 4:5');
+  await page.locator('#appendCount').fill('3');
+  await page.locator('#append').click();
+  const rows = await prompts(page);
+  for (const [indices, params] of [[[0, 1], '--raw --s 0 --c 0 --ar 1:1'], [[2, 3, 4], '--ar 4:5']]) {
+    await page.locator('#mjNext').click();
+    const clipboard = await page.evaluate(() => window.copiedText);
+    const bodies = indices.map(i => rows[i].slice(0, -params.length - 1).replaceAll(',', '\\,'));
+    assert.equal(clipboard, '{' + bodies.join(', ') + '} ' + params);
+  }
+  await page.locator('#appendCount').fill('200');
+  await page.locator('#append').click();
+  assert.equal(await page.locator('.result-row').count(), 205);
+  await generate(page);
+  assert.equal(await page.locator('.result-row').count(), 2);
+  assert.equal(await page.locator('.copy.copied').count(), 0);
+});
+
+test('bulk copy started before append only marks the scenes actually copied', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:() => new Promise(resolve => { window.finishCopy = resolve; })}}));
+  await page.locator('#copyAll').click();
+  await page.locator('#appendCount').fill('1');
+  await page.locator('#append').click();
+  await page.evaluate(() => window.finishCopy());
+  assert.equal(await page.locator('.copy.copied').count(), 20);
+  assert.doesNotMatch(await page.locator('.copy').last().innerText(), /✓/);
+  assert.doesNotMatch(await page.locator('#copyAll').innerText(), /✓/);
+});
+
 test('model formats preserve custom text and omit unselected environment fields', async t => {
   const page = await openPage(t);
   for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL']) await model(page, name).check();

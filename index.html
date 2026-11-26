@@ -5,6 +5,7 @@
 .environment{border:0;padding:0;margin:0;min-width:0}.environment legend{padding:0;font-weight:600}.environment .actions{gap:6px 12px}.environment label{font-weight:500;white-space:nowrap}.controls{margin-bottom:15px}.derived{color:var(--muted);font-size:11px;margin-bottom:4px}
 .model-picker{margin:12px 0 4px}.model-picker .actions{margin:4px 0}.result-row{grid-template-columns:24px minmax(0,1fr)}.variant{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start}.variant+.variant{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}.variant .copy{grid-column:2;grid-row:1 / span 2}.model-name{font-weight:700}.variant .prompt{grid-column:1}button:disabled{opacity:.5;cursor:default}
 button.copied{background:var(--soft);border-color:var(--accent);color:var(--accent)}
+.append-controls{align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--line)}.append-controls input[type=number]{width:76px}
 .mj-tools{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:8px}.mj-tools .actions{align-items:center;gap:8px}.mj-tools select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px;max-width:100%}.mj-tools a{color:var(--accent)}
 </style></head><body><main>
 <header><div class="eyebrow">FACE DATASET STUDIO</div><h1>얼굴 학습 프롬프트 생성기</h1><p class="muted">캐릭터 얼굴 학습용 모델별 랜덤 프롬프트 · <a id="offlineDownload" href="./index.html" download="face-prompt-generator.html" style="color:var(--accent)">오프라인용 HTML 저장</a></p></header>
@@ -64,6 +65,10 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
     <p class="muted" id="mjHelp"></p>
   </div>
   <p id="status" class="status" role="status" aria-live="polite"></p><div id="results" class="results"></div>
+  <div class="actions append-controls">
+    <label for="appendCount">추가할 장면 수</label><input id="appendCount" type="number" min="1" max="200" value="20">
+    <button id="append">장면 더 추가</button>
+  </div>
 </section><footer class="muted">동일 인물 참조 이미지는 사용할 이미지 모델에 별도로 첨부하세요. 정확한 각도와 얼굴 일치 여부는 생성 후 검수해야 합니다.</footer></main>
 <script>
 const library=[{"id":0,"name":"헤어","items":[{"ko":"긴 생머리","en":"long straight hair","enabled":true},{"ko":"매끈한 장발","en":"sleek long straight hair","enabled":true},{"ko":"허리 길이 생머리","en":"waist-length straight hair","enabled":true},{"ko":"중간 길이 생머리","en":"medium-length straight hair","enabled":true},{"ko":"어깨 길이 생머리","en":"shoulder-length straight hair","enabled":true},{"ko":"긴 레이어드컷","en":"long layered hair","enabled":true},{"ko":"중간 레이어드컷","en":"medium layered hair","enabled":true},{"ko":"버터플라이컷","en":"butterfly haircut","enabled":true},{"ko":"허쉬컷","en":"soft shag haircut","enabled":true},{"ko":"울프컷","en":"wolf cut","enabled":true},{"ko":"샤기컷","en":"shag haircut","enabled":true},{"ko":"히메컷","en":"hime cut","enabled":true},{"ko":"긴 S컬","en":"long S-shaped waves","enabled":true},{"ko":"굵은 웨이브","en":"long loose waves","enabled":true},{"ko":"자연스러운 웨이브","en":"natural wavy hair","enabled":true},{"ko":"물결 웨이브","en":"mermaid waves","enabled":true},{"ko":"할리우드 웨이브","en":"Hollywood waves","enabled":true},{"ko":"비치 웨이브","en":"soft beach waves","enabled":true},{"ko":"잔웨이브","en":"fine wavy hair","enabled":true},{"ko":"히피펌","en":"loose spiral curls","enabled":true},{"ko":"풍성한 곱슬머리","en":"voluminous curly hair","enabled":true},{"ko":"C컬 단발","en":"inward-curled bob","enabled":true},{"ko":"C컬 중단발","en":"shoulder-length C-curl hair","enabled":true},{"ko":"칼단발","en":"sleek blunt bob","enabled":true},{"ko":"턱선 단발","en":"chin-length bob","enabled":true},{"ko":"롱보브","en":"long bob","enabled":true},{"ko":"웨이브 단발","en":"wavy bob","enabled":true},{"ko":"프렌치 보브","en":"French bob","enabled":true},{"ko":"레이어드 단발","en":"layered bob","enabled":true},{"ko":"숏컷","en":"short cropped hair","enabled":true},{"ko":"픽시컷","en":"pixie cut","enabled":true},{"ko":"긴 머리 5:5 가르마","en":"long hair with middle part","enabled":true},{"ko":"긴 머리 7:3 가르마","en":"long hair with deep side part","enabled":true},{"ko":"한쪽 귀 뒤로 넘긴 머리","en":"hair tucked behind one ear","enabled":true},{"ko":"양쪽 귀 뒤로 넘긴 머리","en":"hair tucked behind both ears","enabled":true},{"ko":"앞머리 없는 올백","en":"slicked-back hair","enabled":true},{"ko":"일자 앞머리 장발","en":"long hair with blunt bangs","enabled":true},{"ko":"시스루뱅 장발","en":"long hair with wispy bangs","enabled":true},{"ko":"커튼뱅 장발","en":"long hair with curtain bangs","enabled":true},{"ko":"사이드뱅 장발","en":"long hair with side-swept bangs","enabled":true},{"ko":"풀뱅 단발","en":"bob with full bangs","enabled":true},{"ko":"시스루뱅 단발","en":"bob with wispy bangs","enabled":true},{"ko":"짧은 처피뱅","en":"short choppy bangs","enabled":true},{"ko":"높은 포니테일","en":"high ponytail","enabled":true},{"ko":"낮은 포니테일","en":"low ponytail","enabled":true},{"ko":"중간 높이 포니테일","en":"mid-height ponytail","enabled":true},{"ko":"사이드 포니테일","en":"side ponytail","enabled":true},{"ko":"웨이브 포니테일","en":"wavy ponytail","enabled":true},{"ko":"버블 포니테일","en":"bubble ponytail","enabled":true},{"ko":"반묶음","en":"half-up half-down hair","enabled":true},{"ko":"반묶음 웨이브","en":"half-up half-down wavy hair","enabled":true},{"ko":"반묶음 번","en":"half-up bun","enabled":true},{"ko":"높은 번","en":"high bun","enabled":true},{"ko":"낮은 번","en":"low bun","enabled":true},{"ko":"깔끔한 번","en":"sleek bun","enabled":true},{"ko":"자연스러운 번","en":"loose messy bun","enabled":true},{"ko":"양쪽 번","en":"space buns","enabled":true},{"ko":"높은 양갈래","en":"high twin tails","enabled":true},{"ko":"낮은 양갈래","en":"low twin tails","enabled":true},{"ko":"양갈래 땋은 머리","en":"twin braids","enabled":true},{"ko":"한쪽 땋은 머리","en":"side braid","enabled":true},{"ko":"프렌치 브레이드","en":"French braid","enabled":true},{"ko":"더치 브레이드","en":"Dutch braid","enabled":true},{"ko":"피쉬테일 브레이드","en":"fishtail braid","enabled":true},{"ko":"뒤로 넘긴 웨이브","en":"swept-back wavy hair","enabled":true}]},{"id":1,"name":"머리 각도","items":[{"ko":"정면","en":"straight-on front view, head upright","enabled":true},{"ko":"왼쪽 살짝 회전","en":"head turned slightly left","enabled":true},{"ko":"오른쪽 살짝 회전","en":"head turned slightly right","enabled":true},{"ko":"왼쪽 3/4","en":"left three-quarter view","enabled":true},{"ko":"오른쪽 3/4","en":"right three-quarter view","enabled":true},{"ko":"왼쪽 측면에 가깝게","en":"left near-profile view","enabled":true},{"ko":"오른쪽 측면에 가깝게","en":"right near-profile view","enabled":true},{"ko":"완전 왼쪽 측면","en":"full left side profile","enabled":true},{"ko":"완전 오른쪽 측면","en":"full right side profile","enabled":true},{"ko":"정면 턱 살짝 위","en":"front view, chin slightly raised","enabled":true},{"ko":"정면 턱 위","en":"front view, chin raised","enabled":true},{"ko":"정면 턱 살짝 아래","en":"front view, chin slightly lowered","enabled":true},{"ko":"정면 턱 아래","en":"front view, chin lowered","enabled":true},{"ko":"정면 고개 깊게 아래","en":"front view, head bowed downward","enabled":true},{"ko":"왼쪽 사선 위","en":"left three-quarter view, chin raised","enabled":true},{"ko":"오른쪽 사선 위","en":"right three-quarter view, chin raised","enabled":true},{"ko":"왼쪽 사선 아래","en":"left three-quarter view, chin lowered","enabled":true},{"ko":"오른쪽 사선 아래","en":"right three-quarter view, chin lowered","enabled":true},{"ko":"왼쪽 측면 위","en":"left side profile, chin raised","enabled":true},{"ko":"오른쪽 측면 위","en":"right side profile, chin raised","enabled":true},{"ko":"왼쪽 측면 아래","en":"left side profile, chin lowered","enabled":true},{"ko":"오른쪽 측면 아래","en":"right side profile, chin lowered","enabled":true},{"ko":"정면 왼쪽 기울임","en":"front view, head tilted toward left shoulder","enabled":true},{"ko":"정면 오른쪽 기울임","en":"front view, head tilted toward right shoulder","enabled":true},{"ko":"왼쪽 사선 기울임","en":"left three-quarter view, gentle sideways head tilt","enabled":true},{"ko":"오른쪽 사선 기울임","en":"right three-quarter view, gentle sideways head tilt","enabled":true},{"ko":"왼쪽 어깨 너머","en":"looking back over left shoulder, face clearly visible","enabled":true},{"ko":"오른쪽 어깨 너머","en":"looking back over right shoulder, face clearly visible","enabled":true},{"ko":"살짝 높은 카메라","en":"slightly high-angle portrait, head upright","enabled":true},{"ko":"살짝 낮은 카메라","en":"slightly low-angle portrait, head upright","enabled":true},{"ko":"위에서 왼쪽 사선","en":"high-angle left three-quarter portrait","enabled":true},{"ko":"위에서 오른쪽 사선","en":"high-angle right three-quarter portrait","enabled":true},{"ko":"아래에서 왼쪽 사선","en":"low-angle left three-quarter portrait","enabled":true},{"ko":"아래에서 오른쪽 사선","en":"low-angle right three-quarter portrait","enabled":true}]},{"id":2,"name":"의상","items":[{"ko":"흰색 기본 티셔츠","en":"plain white crew-neck T-shirt","enabled":true},{"ko":"검은색 기본 티셔츠","en":"plain black crew-neck T-shirt","enabled":true},{"ko":"회색 티셔츠","en":"plain gray T-shirt","enabled":true},{"ko":"네이비 티셔츠","en":"navy blue T-shirt","enabled":true},{"ko":"베이지 티셔츠","en":"beige T-shirt","enabled":true},{"ko":"연분홍 티셔츠","en":"pale pink T-shirt","enabled":true},{"ko":"하늘색 티셔츠","en":"light blue T-shirt","enabled":true},{"ko":"스트라이프 티셔츠","en":"striped T-shirt","enabled":true},{"ko":"흰색 브이넥","en":"white V-neck T-shirt","enabled":true},{"ko":"검은색 브이넥","en":"black V-neck T-shirt","enabled":true},{"ko":"라운드넥 긴팔","en":"long-sleeved crew-neck shirt","enabled":true},{"ko":"흰색 셔츠","en":"white button-up shirt","enabled":true},{"ko":"검은색 셔츠","en":"black button-up shirt","enabled":true},{"ko":"하늘색 셔츠","en":"light blue button-up shirt","enabled":true},{"ko":"체크 셔츠","en":"plaid shirt","enabled":true},{"ko":"오버사이즈 셔츠","en":"oversized cotton shirt","enabled":true},{"ko":"아이보리 블라우스","en":"ivory blouse","enabled":true},{"ko":"검은색 블라우스","en":"black blouse","enabled":true},{"ko":"실크 블라우스","en":"silk blouse","enabled":true},{"ko":"라운드넥 니트","en":"crew-neck knit sweater","enabled":true},{"ko":"크림색 니트","en":"cream knit sweater","enabled":true},{"ko":"회색 니트","en":"gray knit sweater","enabled":true},{"ko":"검은색 니트","en":"black knit sweater","enabled":true},{"ko":"브이넥 니트","en":"V-neck sweater","enabled":true},{"ko":"터틀넥 니트","en":"black turtleneck sweater","enabled":true},{"ko":"아이보리 터틀넥","en":"ivory turtleneck sweater","enabled":true},{"ko":"목이 낮은 니트","en":"scoop-neck knit top","enabled":true},{"ko":"단추 카디건","en":"button-front cardigan","enabled":true},{"ko":"베이지 카디건","en":"beige cardigan","enabled":true},{"ko":"크롭 카디건","en":"cropped cardigan","enabled":true},{"ko":"흰색 민소매","en":"white sleeveless top","enabled":true},{"ko":"검은색 민소매","en":"black sleeveless top","enabled":true},{"ko":"골지 민소매","en":"ribbed tank top","enabled":true},{"ko":"스포츠 티셔츠","en":"athletic T-shirt","enabled":true},{"ko":"트레이닝 재킷","en":"zip-up track jacket","enabled":true},{"ko":"회색 맨투맨","en":"gray crew-neck sweatshirt","enabled":true},{"ko":"흰색 맨투맨","en":"white sweatshirt","enabled":true},{"ko":"후드티","en":"casual hoodie, hood down","enabled":true},{"ko":"검은 후드 집업","en":"black zip-up hoodie, hood down","enabled":true},{"ko":"청재킷","en":"blue denim jacket","enabled":true},{"ko":"검은 가죽 재킷","en":"black leather jacket","enabled":true},{"ko":"봄버 재킷","en":"bomber jacket","enabled":true},{"ko":"검은 블레이저","en":"black blazer over a plain top","enabled":true},{"ko":"베이지 블레이저","en":"beige blazer","enabled":true},{"ko":"트위드 재킷","en":"tweed jacket","enabled":true},{"ko":"트렌치코트","en":"light beige trench coat","enabled":true},{"ko":"울 코트","en":"wool coat","enabled":true},{"ko":"흰색 폴로셔츠","en":"white polo shirt","enabled":true},{"ko":"네이비 폴로셔츠","en":"navy polo shirt","enabled":true},{"ko":"오프숄더 니트","en":"off-shoulder knit top","enabled":true},{"ko":"스퀘어넥 상의","en":"square-neck top","enabled":true},{"ko":"검은색 심플 원피스","en":"simple black dress","enabled":true},{"ko":"꽃무늬 원피스","en":"subtle floral dress","enabled":true},{"ko":"아이보리 원피스","en":"simple ivory dress","enabled":true},{"ko":"흰색 크롭티","en":"plain white cropped T-shirt","enabled":true},{"ko":"검은색 크롭티","en":"plain black cropped T-shirt","enabled":true},{"ko":"데님 셔츠","en":"denim shirt","enabled":true},{"ko":"리넨 셔츠","en":"linen shirt","enabled":true},{"ko":"세일러칼라 블라우스","en":"sailor-collar blouse","enabled":true},{"ko":"새틴 셔츠","en":"satin shirt","enabled":true}]},{"id":3,"name":"미세 표정","items":[{"ko":"옅은 미소","en":"very subtle closed-mouth smile","enabled":true},{"ko":"미세한 미소","en":"faint smile","enabled":true},{"ko":"살짝 올라간 입꼬리","en":"slightly upturned mouth corners","enabled":true},{"ko":"부드러운 눈빛","en":"soft relaxed gaze","enabled":true},{"ko":"살짝 벌린 입술","en":"lips slightly parted","enabled":true},{"ko":"편안한 표정","en":"calm relaxed facial expression","enabled":true},{"ko":"살짝 생각하는 표정","en":"subtly thoughtful expression","enabled":true},{"ko":"약간 진지한 표정","en":"slightly serious expression","enabled":true},{"ko":"미세하게 놀란 표정","en":"very mildly surprised expression","enabled":true},{"ko":"한쪽 눈썹 살짝 올림","en":"one eyebrow slightly raised","enabled":true},{"ko":"양쪽 눈썹 살짝 올림","en":"eyebrows slightly raised","enabled":true},{"ko":"약간 궁금한 표정","en":"subtly curious expression","enabled":true},{"ko":"약간 걱정스러운 표정","en":"very subtle concerned expression","enabled":true},{"ko":"약간 슬픈 표정","en":"very subtle sad expression","enabled":true},{"ko":"미세하게 찌푸린 눈썹","en":"slightly furrowed brows","enabled":true},{"ko":"살짝 수줍은 미소","en":"faint shy closed-mouth smile","enabled":true},{"ko":"약간 자신감 있는 표정","en":"subtly confident expression","enabled":true},{"ko":"아주 옅은 한쪽 미소","en":"subtle asymmetric smile","enabled":true},{"ko":"미세한 집중 표정","en":"subtly focused expression","enabled":true},{"ko":"살짝 편안하게 감은 눈","en":"eyes gently closed","enabled":true}]},{"id":4,"name":"배경","items":[{"ko":"흰색 스튜디오","en":"plain white studio backdrop","enabled":true,"group":"studio"},{"ko":"밝은 회색 스튜디오","en":"plain light gray studio backdrop","enabled":true,"group":"studio"},{"ko":"중간 회색 스튜디오","en":"plain medium gray studio backdrop","enabled":true,"group":"studio"},{"ko":"차콜 스튜디오","en":"plain charcoal gray studio backdrop","enabled":true,"group":"studio"},{"ko":"검은색 스튜디오","en":"plain black studio backdrop","enabled":true,"group":"studio"},{"ko":"아이보리 스튜디오","en":"plain ivory studio backdrop","enabled":true,"group":"studio"},{"ko":"베이지 스튜디오","en":"plain beige studio backdrop","enabled":true,"group":"studio"},{"ko":"연분홍 스튜디오","en":"plain pale pink studio backdrop","enabled":true,"group":"studio"},{"ko":"연하늘색 스튜디오","en":"plain pale blue studio backdrop","enabled":true,"group":"studio"},{"ko":"세이지 그린 스튜디오","en":"plain muted sage green studio backdrop","enabled":true,"group":"studio"},{"ko":"연보라 스튜디오","en":"plain muted lavender studio backdrop","enabled":true,"group":"studio"},{"ko":"웜그레이 스튜디오","en":"plain warm gray studio backdrop","enabled":true,"group":"studio"},{"ko":"흐린 회색 그라데이션","en":"subtle gray gradient studio backdrop","enabled":true,"group":"studio"},{"ko":"흐린 베이지 그라데이션","en":"subtle beige gradient studio backdrop","enabled":true,"group":"studio"},{"ko":"흰 벽","en":"simple white interior wall","enabled":true,"group":"indoor"},{"ko":"콘크리트 벽","en":"plain concrete wall","enabled":true,"group":"indoor"},{"ko":"벽돌 벽","en":"softly blurred brick wall","enabled":true,"group":"indoor"},{"ko":"목재 벽","en":"softly blurred wooden wall","enabled":true,"group":"indoor"},{"ko":"커튼","en":"softly blurred neutral curtains","enabled":true,"group":"indoor"},{"ko":"창가","en":"softly blurred window-side interior","enabled":true,"group":"window"},{"ko":"거실","en":"softly blurred minimalist living room","enabled":true,"group":"indoor"},{"ko":"침실","en":"softly blurred tidy bedroom","enabled":true,"group":"indoor"},{"ko":"카페","en":"softly blurred quiet cafe interior","enabled":true,"group":"indoor"},{"ko":"도서관","en":"softly blurred library shelves","enabled":true,"group":"indoor"},{"ko":"사무실","en":"softly blurred modern office interior","enabled":true,"group":"indoor"},{"ko":"복도","en":"softly blurred clean indoor hallway","enabled":true,"group":"indoor"},{"ko":"전시 공간","en":"softly blurred minimalist gallery interior","enabled":true,"group":"indoor"},{"ko":"실내 식물","en":"softly blurred indoor plants","enabled":true,"group":"indoor"},{"ko":"나무와 잎","en":"softly blurred green foliage","enabled":true,"group":"nature"},{"ko":"공원","en":"softly blurred quiet park","enabled":true,"group":"nature"},{"ko":"잔디밭","en":"softly blurred grassy field","enabled":true,"group":"nature"},{"ko":"정원","en":"softly blurred garden","enabled":true,"group":"nature"},{"ko":"숲길","en":"softly blurred forest path","enabled":true,"group":"nature"},{"ko":"해변","en":"softly blurred sandy beach","enabled":true,"group":"coast"},{"ko":"바다","en":"softly blurred ocean background","enabled":true,"group":"coast"},{"ko":"호숫가","en":"softly blurred lakeside background","enabled":true,"group":"nature"},{"ko":"산 풍경","en":"softly blurred distant mountains","enabled":true,"group":"nature"},{"ko":"도시 거리","en":"softly blurred quiet city street","enabled":true,"group":"city"},{"ko":"건물 외벽","en":"softly blurred modern building facade","enabled":true,"group":"city"},{"ko":"옥상","en":"softly blurred rooftop cityscape","enabled":true,"group":"city"}]}];
@@ -139,7 +144,7 @@ const make=(tag,cls,txt)=>{let e=document.createElement(tag);if(cls)e.className=
 const selected=g=>g.items.filter(x=>x.enabled);
 function metrics(){ $('metrics').replaceChildren();for(const g of library){const m=make('div','metric');m.append(make('strong','',selected(g).length+(g.name==='미세 표정'?1:0)),make('span','muted',g.name==='미세 표정'?'표정 (무표정 포함)':g.name));$('metrics').append(m);$('sel-'+g.id).textContent=selected(g).length+'/'+g.items.length+' 선택';}}
 for(const g of library){const d=make('details'),s=make('summary','',g.name),n=make('span','selection');n.id='sel-'+g.id;s.append(n);d.append(s);const body=make('div','inside'),actions=make('div','actions'),choices=make('div','choices'),checks=[];for(const item of g.items){const l=make('label','choice'),cb=make('input'),t=make('span','',item.ko);cb.type='checkbox';cb.checked=item.enabled;cb.onchange=()=>{item.enabled=cb.checked;metrics()};checks.push(cb);t.append(make('small','',item.en));l.append(cb,t);choices.append(l)}for(const [txt,val] of [['전체 선택',true],['전체 해제',false]]){const b=make('button','',txt);b.onclick=()=>{g.items.forEach((x,i)=>{x.enabled=val;checks[i].checked=val});metrics()};actions.append(b)}if(g.id===4)body.append(make('p','muted','단색·실내·실외 배경을 선택할 수 있습니다. 전체 해제하면 배경 프롬프트가 생략됩니다.'));body.append(actions,choices);d.append(body);$('libraries').append(d)}
-function count(){return Math.max(1,Math.min(200,Math.floor(Number($('count').value)||1)))}
+function count(control = 'count'){return Math.max(1,Math.min(200,Math.floor(Number($(control).value)||1)))}
 function quota(n, control) {
   return Math.round(n * Number($(control).value) / 100);
 }
@@ -288,24 +293,33 @@ async function copyAndMark(items, models, text, bulk = false) {
   for (const item of items) {
     for (const name of models) item.copied.add(name);
   }
-  if (bulk) copiedSelections.add(models.join('|'));
+  if (bulk && items.length === output.length) copiedSelections.add(models.join('|'));
   updateCopyMarks();
 }
 
 function copyPrompts(models, index) {
-  if (index === undefined) return copyAndMark(output, models, exportText(models), true);
+  if (index === undefined) return copyAndMark(output.slice(), models, exportText(models), true);
   const item = output[index];
   return copyAndMark([item], models, item.texts[models[0]]);
 }
 
 let copyingNext = false;
+function needsSinglePrompt(item) {
+  return /[{}]|(?:^|\s)--(?:r|repeat|relax)(?=\s|$)/i.test(item.texts.Midjourney) || /\\(?:,|$)/.test(item.mjBody);
+}
 function midjourneyQueue() {
   const remaining = output.filter(item => !item.copied.has('Midjourney'));
   const limit = Number($('mjCopyMode').value);
-  // Existing permutation, repeat or escape syntax must keep its original meaning.
-  const singleOnly = limit > 1 && remaining.some(item =>
-    /[{}]|(?:^|\s)--(?:r|repeat|relax)(?=\s|$)/i.test(item.texts.Midjourney) || /\\(?:,|$)/.test(item.mjBody));
-  return {remaining, next: remaining.slice(0, singleOnly ? 1 : limit), singleOnly};
+  const first = remaining[0];
+  if (!first) return {remaining, next: [], singleOnly: false};
+  const singleOnly = limit > 1 && needsSinglePrompt(first);
+  const next = [first];
+  for (let i = 1; !singleOnly && i < limit && i < remaining.length; i++) {
+    const item = remaining[i];
+    if (item.mjParams !== first.mjParams || needsSinglePrompt(item)) break;
+    next.push(item);
+  }
+  return {remaining, next, singleOnly};
 }
 
 function updateMidjourneyControls() {
@@ -340,39 +354,51 @@ async function copyNextMidjourney() {
   try { await copyAndMark(next, ['Midjourney'], text); }
   finally { copyingNext = false; updateMidjourneyControls(); }
 }
-function generate() {
-  const n = count(), neutrals = quota(n, 'ratio'), closeUps = quota(n, 'frameRatio');
+function generate(append = false) {
+  const control = append ? 'appendCount' : 'count';
+  const n = count(control), neutrals = quota(n, 'ratio'), closeUps = quota(n, 'frameRatio');
   const groups = library.map(selected);
-  $('count').value = n;
+  $(control).value = n;
   estimate();
   if (groups.slice(0, 3).some(group => !group.length) || (neutrals < n && !groups[3].length)) {
     $('status').textContent = '필요한 카테고리에서 하나 이상 선택하세요.';
     return;
   }
-  output = build(groups, n, neutrals, closeUps, {
+  const scenes = build(groups, n, neutrals, closeUps, {
     weather: $('useWeather').checked, time: $('useTime').checked, lighting: $('useLighting').checked,
     prefix: $('prefix').value.trim(), suffix: $('suffix').value.trim(), params: $('params').value.trim(),
   });
+  const start = append ? output.length : 0;
+  if (append) output.push(...scenes);
+  else {
+    output = scenes;
+    $('appendCount').value = n;
+  }
   copiedSelections.clear();
-  $('info').textContent = '장면 ' + n + '개 · 무표정 ' + neutrals + '개 · 미세 표정 ' + (n - neutrals)
-    + '개 · 얼굴 클로즈업 ' + closeUps + '개 · 상반신 ' + (n - closeUps) + '개';
-  renderResults();
+  const total = output.length;
+  const neutralTotal = output.filter(item => item.items.includes(neutral)).length;
+  const closeTotal = output.filter(item => item.items.includes(closeUp)).length;
+  $('info').textContent = '장면 ' + total + '개 · 무표정 ' + neutralTotal + '개 · 미세 표정 ' + (total - neutralTotal)
+    + '개 · 얼굴 클로즈업 ' + closeTotal + '개 · 상반신 ' + (total - closeTotal) + '개';
+  renderResults(start);
 }
 
 function selectedModels() {
   return Array.from($('models').querySelectorAll('input:checked'), input => input.value);
 }
 
-function renderResults() {
+function renderResults(start = 0) {
   const models = selectedModels();
-  $('results').replaceChildren();
+  const results = $('results');
+  if (!start) results.replaceChildren();
   $('status').textContent = models.length ? '' : '비교할 이미지 모델을 하나 이상 선택하세요.';
   $('copyAll').disabled = $('save').disabled = !models.length || !output.length;
   if (!models.length) {
     updateCopyMarks();
     return;
   }
-  output.forEach((item, i) => {
+  for (let i = start; i < output.length; i++) {
+    const item = output[i];
     const row = make('div','result-row'), body = make('div');
     body.append(make('div','tagline',item.items.map(x => x.ko).join(' · ')));
     if (item.environment.length) body.append(make('div','derived',item.environment.map(x => x.ko).join(' · ')));
@@ -388,10 +414,13 @@ function renderResults() {
       body.append(variant);
     }
     row.append(make('div','muted',String(i + 1).padStart(2,'0')), body);
-    $('results').append(row);
-  });
+    results.append(row);
+  }
   updateCopyMarks();
-  $('results').scrollTop = 0;
+  if (start) {
+    results.scrollTop += results.children[start].getBoundingClientRect().top - results.getBoundingClientRect().top;
+    $('status').textContent = (start + 1) + '번부터 ' + (output.length - start) + '개 장면을 추가했습니다.';
+  } else results.scrollTop = 0;
 }
 
 function exportText(models = selectedModels()) {
@@ -406,12 +435,13 @@ for (const name of Object.keys(formatters)) {
   checkbox.type = 'checkbox';
   checkbox.value = name;
   checkbox.checked = name === 'Midjourney';
-  checkbox.onchange = renderResults;
+  checkbox.onchange = () => renderResults();
   label.append(checkbox, ' ' + name);
   $('models').append(label);
 }
 $('frameRatio').oninput = estimate;
-$('generate').onclick=generate;$('ratio').oninput=estimate;$('count').oninput=estimate;document.querySelectorAll('[data-count]').forEach(b=>b.onclick=()=>{$('count').value=b.dataset.count;estimate()});
+$('generate').onclick=() => generate();$('ratio').oninput=estimate;$('count').oninput=estimate;document.querySelectorAll('[data-count]').forEach(b=>b.onclick=()=>{$('count').value=b.dataset.count;estimate()});
+$('append').onclick = () => generate(true);
 $('copyAll').onclick = () => copyPrompts(selectedModels());
 $('mjCopyMode').onchange = updateMidjourneyControls;
 $('mjNext').onclick = copyNextMidjourney;
