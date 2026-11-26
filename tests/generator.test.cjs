@@ -65,6 +65,24 @@ test('first batch has 16 neutral expressions and 14 face close-ups in 20 prompts
   assert.match(await page.locator('#frameEstimate').innerText(), /14개.*6개/);
 });
 
+test('random and recommended Midjourney prompts omit the default aspect ratio in single and bundle copies', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{
+    writeText:async text => { window.copiedText = text; },
+  }}));
+  for (const button of ['#generate', '#recommend']) {
+    await page.locator(button).click();
+    const rows = await prompts(page);
+    for (const row of rows) assert.doesNotMatch(row, /--(?:ar|aspect)\b/);
+    await page.locator('.copy').first().click();
+    assert.equal(await page.evaluate(() => window.copiedText), rows[0]);
+    await page.locator('#mjNext').click();
+    const bundle = await page.evaluate(() => window.copiedText);
+    assert.match(bundle, /^\{.+\} --raw --s 0 --c 0$/);
+    assert.doesNotMatch(bundle, /--(?:ar|aspect)\b/);
+  }
+});
+
 test('Clean empties a recommended list and keeps selections for a new numbered list', async t => {
   const page = await openPage(t);
   const change = page.locator('#listChange');
@@ -633,7 +651,7 @@ test('appended scenes keep their own Midjourney parameters and fresh generation 
   await page.locator('#appendCount').fill('3');
   await page.locator('#append').click();
   const rows = await prompts(page);
-  for (const [indices, params] of [[[0, 1], '--raw --s 0 --c 0 --ar 1:1'], [[2, 3, 4], '--ar 4:5']]) {
+  for (const [indices, params] of [[[0, 1], '--raw --s 0 --c 0'], [[2, 3, 4], '--ar 4:5']]) {
     await page.locator('#mjNext').click();
     const clipboard = await page.evaluate(() => window.copiedText);
     const bodies = indices.map(i => rows[i].slice(0, -params.length - 1).replaceAll(',', '\\,'));
