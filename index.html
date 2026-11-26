@@ -11,6 +11,7 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
 @media(min-width:651px){.metrics{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .generate-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 6px}.generate-actions .primary{margin:0}.generate-actions button{font-weight:700;padding:12px}.reference-help a{color:var(--accent)}@media(max-width:500px){.generate-actions{grid-template-columns:1fr}}
 .result-head{flex-wrap:wrap}.list-change{color:var(--accent);font-weight:600}
+.mj-input:not(:disabled){background:var(--accent);color:var(--panel);font-weight:700}.archive{border:0;margin:8px 0 0}.archive summary{padding:0;color:var(--muted);font-size:12px}.archive button{margin-top:6px}
 </style></head><body><main>
 <header><div class="eyebrow">FACE DATASET STUDIO</div><h1>얼굴 학습 프롬프트 생성기</h1><p class="muted">캐릭터 얼굴 학습용 모델별 랜덤 프롬프트 · <a id="offlineDownload" href="./index.html" download="face-prompt-generator.html" style="color:var(--accent)">오프라인용 HTML 저장</a></p></header>
 <div class="metrics" id="metrics"></div>
@@ -41,7 +42,7 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
     <div class="inside">
       <label for="prefix">공통 프롬프트</label><textarea id="prefix">photorealistic, consistent facial features</textarea>
       <label for="suffix">촬영 조건</label><textarea id="suffix">natural skin texture</textarea>
-      <label for="params">미드저니 파라미터 (필요시 수정)</label><textarea id="params">--raw --s 0 --c 0</textarea>
+      <label for="params">미드저니 파라미터 (필요시 수정)</label><textarea id="params">--raw --s 0</textarea>
     </div>
   </details>
 </section>
@@ -77,17 +78,21 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
     <div><h2>04 · 생성 결과</h2><p id="listChange" class="list-change" role="status"></p><p class="muted" id="info"></p></div>
     <div class="actions"><button id="copyAll">전체 복사</button><button id="save">TXT 저장</button><button id="clean">목록 비우기 (Clean)</button></div>
   </div>
+  <div class="mj-tools" id="mjTools" hidden>
+    <div class="actions">
+      <button id="mjNext" class="mj-input" aria-describedby="mjHelp"></button><span id="mjProgress" class="muted"></span>
+      <a href="https://www.midjourney.com/imagine" target="_blank" rel="noopener noreferrer">미드저니 열기 ↗</a>
+    </div>
+    <p class="muted" id="mjHelp"></p>
+    <details class="archive" id="archive"><summary>목록 보관용 복사</summary>
+      <button id="copyArchive">보관용 텍스트 복사</button>
+      <span class="muted">선택한 모델의 모든 장면을 줄바꿈으로 구분해 복사합니다.</span>
+    </details>
+  </div>
   <div id="referenceHelp" class="reference-help" hidden>
     <p class="muted" id="directionSummary"></p>
     <p class="muted">이미지를 만들 때 같은 기준 얼굴 사진을 참조로 첨부하세요. 결과를 원본과 비교해 같은 인물로 보이는 컷을 학습에 사용하세요.</p>
     <p class="muted" id="mjReference">미드저니 입력창에서 사진을 <a href="https://docs.midjourney.com/hc/en-us/articles/36285124473997-Omni-Reference" target="_blank" rel="noopener noreferrer">V7의 Omni Reference</a> 또는 <a href="https://docs.midjourney.com/hc/en-us/articles/48495453462797-Edit-Model" target="_blank" rel="noopener noreferrer">V8.1·8.2의 Attach to prompt</a>에 넣고 자물쇠로 고정하세요.</p>
-  </div>
-  <div class="mj-tools" id="mjTools" hidden>
-    <div class="actions">
-      <button id="mjNext"></button><span id="mjProgress" class="muted"></span>
-      <a href="https://www.midjourney.com/imagine" target="_blank" rel="noopener noreferrer">미드저니 열기 ↗</a>
-    </div>
-    <p class="muted" id="mjHelp"></p>
   </div>
   <p id="status" class="status" role="status" aria-live="polite"></p><div id="results" class="results"></div>
   <div class="actions append-controls">
@@ -451,6 +456,8 @@ function updateCopyMarks() {
   const allCopied = copiedSelections.has(selectedModels().join('|'));
   bulk.classList.toggle('copied', allCopied);
   bulk.textContent = allCopied ? '✓ 전체 복사됨' : '전체 복사';
+  $('copyArchive').classList.toggle('copied', allCopied);
+  $('copyArchive').textContent = allCopied ? '✓ 보관용 텍스트 복사됨' : '보관용 텍스트 복사';
   for (const button of $('results').querySelectorAll('.copy')) {
     const {index, model} = button.dataset;
     const done = output[index].copied.has(model);
@@ -465,10 +472,16 @@ async function copyAndMark(items, models, text, bulk = false) {
   const batch = output;
   const ok = await copy(text);
   if (batch !== output) return;
-  $('status').textContent = ok ? '복사 완료' : '복사가 제한되어 있습니다. 결과를 선택해 복사하거나 TXT로 저장하세요.';
-  if (!ok) return;
-  for (const item of items) {
-    for (const name of models) item.copied.add(name);
+  if (!ok) {
+    $('status').textContent = '복사가 제한되어 있습니다. 결과를 선택해 복사하거나 TXT로 저장하세요.';
+    return;
+  }
+  const archive = bulk && models.includes('Midjourney');
+  $('status').textContent = archive ? '보관용 목록을 복사했습니다.' : '복사 완료';
+  if (!archive) {
+    for (const item of items) {
+      for (const name of models) item.copied.add(name);
+    }
   }
   if (bulk && items.length === output.length) copiedSelections.add(models.join('|'));
   updateCopyMarks();
@@ -509,8 +522,8 @@ function updateMidjourneyControls() {
   button.disabled = pendingBundleCopies.has(output) || !next.length;
   button.classList.toggle('copied', !remaining.length);
   if (!next.length) button.textContent = '✓ 모두 복사됨';
-  else if (next.length === 1) button.textContent = '다음 미복사 항목 복사 (' + (output.indexOf(next[0]) + 1) + '번)';
-  else button.textContent = '다음 묶음 복사 (' + next.length + '개)';
+  else if (next.length === 1) button.textContent = '미드저니 입력용 복사 (' + (output.indexOf(next[0]) + 1) + '번)';
+  else button.textContent = '미드저니 입력용 묶음 복사 (' + next.length + '개)';
   let help = 'Fast 또는 Turbo에서 묶음을 Imagine 입력창에 붙여넣고 전송하세요. GPU 시간은 장면별로 사용됩니다.';
   if (singleOnly) help = '현재 프롬프트에 묶음과 함께 쓰기 어려운 문법이나 모드가 있어 한 개씩 복사합니다.';
   else if ($('mjCopyMode').value === '1') help = '복사한 항목을 Imagine 입력창에 붙여넣고 전송한 뒤, 같은 버튼으로 다음 장면을 복사하세요.';
@@ -552,6 +565,7 @@ function generate(append = false, recommended = false) {
   if (append) output.push(...scenes);
   else {
     output = scenes;
+    $('archive').open = false;
     recommendedList = recommended;
     listNumber++;
     $('appendCount').value = n;
@@ -593,6 +607,7 @@ function selectedModels() {
 function renderResults(start = 0) {
   const models = selectedModels();
   $('mjReference').hidden = !models.includes('Midjourney');
+  $('copyAll').hidden = models.includes('Midjourney');
   const results = $('results');
   if (!start) results.replaceChildren();
   $('status').textContent = models.length ? '' : '03 · 생성 모델에서 모델을 하나 이상 선택하세요.';
@@ -655,6 +670,7 @@ for (const id of ['count', 'appendCount']) {
 $('append').onclick = () => generate(true, recommendedList);
 $('clean').onclick = clearResults;
 $('copyAll').onclick = () => copyPrompts(selectedModels());
+$('copyArchive').onclick = () => copyPrompts(selectedModels());
 $('mjCopyMode').onchange = () => { syncGenerationControls(); updateMidjourneyControls(); };
 $('mjNext').onclick = copyNextMidjourney;
 $('save').onclick = () => {

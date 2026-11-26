@@ -65,7 +65,7 @@ test('first batch has 16 neutral expressions and 14 face close-ups in 20 prompts
   assert.match(await page.locator('#frameEstimate').innerText(), /14개.*6개/);
 });
 
-test('random and recommended Midjourney prompts omit the default aspect ratio in single and bundle copies', async t => {
+test('random and recommended Midjourney input copies contain no forced aspect ratio or chaos', async t => {
   const page = await openPage(t);
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{
     writeText:async text => { window.copiedText = text; },
@@ -73,13 +73,13 @@ test('random and recommended Midjourney prompts omit the default aspect ratio in
   for (const button of ['#generate', '#recommend']) {
     await page.locator(button).click();
     const rows = await prompts(page);
-    for (const row of rows) assert.doesNotMatch(row, /--(?:ar|aspect)\b/);
+    for (const row of rows) assert.doesNotMatch(row, /--(?:ar|aspect|c|chaos)\b/);
     await page.locator('.copy').first().click();
     assert.equal(await page.evaluate(() => window.copiedText), rows[0]);
     await page.locator('#mjNext').click();
     const bundle = await page.evaluate(() => window.copiedText);
-    assert.match(bundle, /^\{.+\} --raw --s 0 --c 0$/);
-    assert.doesNotMatch(bundle, /--(?:ar|aspect)\b/);
+    assert.match(bundle, /^\{.+\} --raw --s 0$/);
+    assert.doesNotMatch(bundle, /--(?:ar|aspect|c|chaos)\b/);
   }
 });
 
@@ -94,8 +94,8 @@ test('Clean empties a recommended list and keeps selections for a new numbered l
   await page.locator('#recommend').click();
   assert.match(await change.innerText(), /목록 #2.*추천 장면 3개 새로 생성/);
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async () => {}}}));
-  await page.locator('#copyAll').click();
-  assert.equal(await page.locator('.copy.copied').count(), 6);
+  await page.locator('#mjNext').click();
+  assert.equal(await page.locator('.copy.copied').count(), 3);
   await page.locator('#appendCount').fill('2');
   await page.locator('#append').click();
   assert.match(await change.innerText(), /목록 #2.*4–5번 추가/);
@@ -409,7 +409,8 @@ test('custom fields, single and bulk copy, and the TXT download use the displaye
   }));
   await page.locator('.copy').first().click();
   assert.equal(await page.evaluate(() => window.copiedText), rows[0]);
-  await page.locator('#copyAll').click();
+  await page.locator('#archive summary').click();
+  await page.locator('#copyArchive').click();
   assert.equal(await page.evaluate(() => window.copiedText), rows.join('\n\n'));
   const downloadEvent = page.waitForEvent('download');
   await page.locator('#save').click();
@@ -420,18 +421,20 @@ test('custom fields, single and bulk copy, and the TXT download use the displaye
 
 test('copy checkmarks track the copied scene and model, bulk selection, and new batches', async t => {
   const page = await openPage(t);
+  await model(page, 'Gemini (Nano Banana)').check();
+  await model(page, 'Midjourney').uncheck();
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async () => {}}}));
   const buttons = page.locator('.copy'), bulk = page.locator('#copyAll');
   await buttons.first().click();
   assert.match(await buttons.first().innerText(), /✓/);
   assert.doesNotMatch(await buttons.nth(1).innerText(), /✓/);
-  await model(page, 'GPT Image').check();
+  await model(page, 'FLUX.2').check();
   assert.match(await buttons.first().innerText(), /✓/);
   assert.doesNotMatch(await buttons.nth(1).innerText(), /✓/);
   await bulk.click();
   assert.match(await bulk.innerText(), /✓/);
   assert.ok((await buttons.allTextContents()).every(label => label.includes('✓')));
-  await model(page, 'FLUX.2').check();
+  await model(page, 'Stable Diffusion XL').check();
   assert.doesNotMatch(await bulk.innerText(), /✓/);
   assert.doesNotMatch(await buttons.nth(2).innerText(), /✓/);
   await generate(page);
@@ -454,7 +457,7 @@ test('denied copy stays unmarked, fallback success is marked and late success ca
   await page.evaluate(() => {
     navigator.clipboard.writeText = () => new Promise(resolve => { window.finishCopy = resolve; });
   });
-  await page.locator('#copyAll').click();
+  await page.locator('#mjNext').click();
   await generate(page);
   await page.evaluate(() => window.finishCopy());
   assert.doesNotMatch(await button.innerText(), /✓/);
@@ -508,6 +511,33 @@ test('Midjourney clipboard bundles expand to exactly the original scenes for eac
     assert.equal((await page.locator('.copy.copied').count()), 41);
     await page.locator('#params').fill('--ar 4:5 --raw');
   }
+});
+
+test('the main Midjourney action pastes one permutation and archiving never advances its queue', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText: async text => { window.copiedText = text; }},
+  }));
+  const action = page.getByRole('button', {name:/미드저니 입력용 묶음 복사/});
+  assert.equal(await action.isVisible(), true);
+  assert.equal(await page.locator('#copyAll').isVisible(), false);
+  assert.equal(await page.locator('#copyArchive').isVisible(), false);
+  await model(page, 'GPT Image').check();
+  await page.locator('#archive summary').click();
+  await page.locator('#copyArchive').click();
+  assert.match(await page.evaluate(() => window.copiedText), /\[01 · GPT Image\]/);
+  assert.match(await page.locator('#copyArchive').innerText(), /✓/);
+  assert.equal(await page.locator('#mjProgress').innerText(), '0 / 20개 복사됨');
+  await action.click();
+  const text = await page.evaluate(() => window.copiedText);
+  assert.equal(text.split('\n').length, 1);
+  assert.equal(text.match(/--raw/g).length, 1);
+  assert.equal(text.match(/(?<!\\), /g).length, 3);
+  assert.doesNotMatch(text, /GPT Image|\[01/);
+  assert.equal(await page.locator('#mjProgress').innerText(), '4 / 20개 복사됨');
+  await model(page, 'Midjourney').uncheck();
+  assert.equal(await page.locator('#copyAll').isVisible(), true);
+  assert.equal(await action.isVisible(), false);
 });
 
 test('next uncopied skips previously copied scenes, supports Relax and retains position on failure', async t => {
@@ -596,7 +626,8 @@ test('five model formats share the current scene, work offline and export by mod
   }));
   await rows.first().locator('.copy').nth(2).click();
   assert.equal(await page.evaluate(() => window.copiedText), await rows.first().locator('.prompt').nth(2).innerText());
-  await page.locator('#copyAll').click();
+  await page.locator('#archive summary').click();
+  await page.locator('#copyArchive').click();
   assert.equal(await page.evaluate(() => window.copiedText), exported.join('\n\n'));
   const event = page.waitForEvent('download');
   await page.locator('#save').click();
@@ -612,7 +643,9 @@ test('append preserves rows and copy marks while adding current settings to tota
   const page = await openPage(t);
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async text => { window.copiedText = text; }}}));
   const before = await prompts(page);
-  await page.locator('#copyAll').click();
+  await page.locator('#mjCopyMode').selectOption('10');
+  await page.locator('#mjNext').click();
+  await page.locator('#mjNext').click();
   await page.locator('#ratio').fill('0');
   await page.locator('#frameRatio').fill('100');
   await page.locator('.advanced summary').click();
@@ -630,7 +663,8 @@ test('append preserves rows and copy marks while adding current settings to tota
   await model(page, 'FLUX.2').check();
   assert.equal((await prompts(page)).length, 46);
   await model(page, 'FLUX.2').uncheck();
-  await page.locator('#copyAll').click();
+  await page.locator('#archive summary').click();
+  await page.locator('#copyArchive').click();
   assert.equal(await page.evaluate(() => window.copiedText), after.join('\n\n'));
   const downloadEvent = page.waitForEvent('download');
   await page.locator('#save').click();
@@ -647,11 +681,11 @@ test('appended scenes keep their own Midjourney parameters and fresh generation 
   await page.locator('#count').fill('2');
   await generate(page);
   await page.locator('.advanced summary').click();
-  await page.locator('#params').fill('--ar 4:5');
+  await page.locator('#params').fill('--ar 4:5 --chaos 17');
   await page.locator('#appendCount').fill('3');
   await page.locator('#append').click();
   const rows = await prompts(page);
-  for (const [indices, params] of [[[0, 1], '--raw --s 0 --c 0'], [[2, 3, 4], '--ar 4:5']]) {
+  for (const [indices, params] of [[[0, 1], '--raw --s 0'], [[2, 3, 4], '--ar 4:5 --chaos 17']]) {
     await page.locator('#mjNext').click();
     const clipboard = await page.evaluate(() => window.copiedText);
     const bodies = indices.map(i => rows[i].slice(0, -params.length - 1).replaceAll(',', '\\,'));
@@ -667,6 +701,8 @@ test('appended scenes keep their own Midjourney parameters and fresh generation 
 
 test('bulk copy started before append only marks the scenes actually copied', async t => {
   const page = await openPage(t);
+  await model(page, 'GPT Image').check();
+  await model(page, 'Midjourney').uncheck();
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:() => new Promise(resolve => { window.finishCopy = resolve; })}}));
   await page.locator('#copyAll').click();
   await page.locator('#appendCount').fill('1');
