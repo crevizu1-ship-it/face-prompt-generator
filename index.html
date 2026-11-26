@@ -40,7 +40,7 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
   </div>
   <details class="advanced"><summary>공통 프롬프트 / 파라미터</summary>
     <div class="inside">
-      <p class="muted">실사 사진, 얼굴과 피부 질감, 구도·표정을 먼저 넣습니다. 추가 지시는 한 줄에 하나씩 쓰세요. 길어서 빠진 항목은 결과에 표시됩니다.</p>
+      <p class="muted">실사 사진·인물·구도, 피부 질감, 각도·표정, 헤어는 필수입니다. 추가 지시는 중요한 순서대로 한 줄에 하나씩 쓰세요. 길이 제한에 걸린 항목부터 뒤쪽 항목까지 생략합니다.</p>
       <label for="prefix">공통 추가 지시</label><textarea id="prefix" placeholder="예: preserve the freckles across the nose"></textarea>
       <label for="suffix">추가 촬영 조건</label><textarea id="suffix" placeholder="예: use a 50mm lens"></textarea>
       <label for="params">미드저니 파라미터 (필요시 수정)</label><textarea id="params">--raw --s 0</textarea>
@@ -408,7 +408,7 @@ function renderPrompt(name, shot, options) {
   const face = expression === neutral ? 'neutral expression, closed lips' : expression.en.replace('very subtle ', 'subtle ');
   const visibility = options.soulTraining ? (compact ? 'solo, entire face in frame, unobstructed' : 'single subject, entire face in frame and unobstructed') : '';
   const skin = compact ? 'natural skin texture' : 'natural skin texture, fine pores';
-  const core = [
+  const required = [
     format.intro(frame, subject),
     joinPhrases([skin, visibility]),
     joinPhrases([view, face]),
@@ -419,27 +419,28 @@ function renderPrompt(name, shot, options) {
     if (compact) return text;
     return sentence(text.charAt(0).toUpperCase() + text.slice(1));
   }
-  let text = core.filter(Boolean).map(fragment).join(format.separator);
-  const omitted = [];
-  function add(label, value) {
-    if (!value) return;
-    const part = compact ? value : sentence(value);
-    const candidate = text + format.separator + part;
-    if (candidate.length <= format.limit) text = candidate;
-    else if (!omitted.includes(label)) omitted.push(label);
-  }
   const light = context.lighting && (compact ? context.lighting.short : context.lighting.en);
   const backdrop = midjourney ? background.en.replace('softly blurred ', 'blurred ').replace(/^plain (.+) studio backdrop$/, 'solid $1 backdrop') : background.en;
-  add('조명', light && (compact ? light : 'Use ' + light));
-  for (const [label, lines] of [['공통 추가 지시', options.prefix], ['추가 촬영 조건', options.suffix]]) {
-    for (const line of lines.split('\n')) add(label, line.trim());
+  const optional = [
+    ['조명', light && (compact ? light : 'Use ' + light)],
+    ...options.prefix.split('\n').map(line => ['공통 추가 지시', line.trim()]),
+    ...options.suffix.split('\n').map(line => ['추가 촬영 조건', line.trim()]),
+    ['의상', compact ? outfit.en : 'The subject wears ' + withArticle(outfit.en)],
+    ['포즈', shot.bodyPose && fragment(shot.bodyPose)],
+    ['배경', backdrop && (compact ? backdrop : 'The setting is ' + backdrop)],
+    ['시간대', context.time && fragment(context.time.en)],
+    ['날씨', context.weather && fragment(context.weather.en)],
+  ];
+
+  let text = required.filter(Boolean).map(fragment).join(format.separator);
+  const omitted = new Set();
+  for (const [label, value] of optional) {
+    if (!value) continue;
+    const candidate = text + format.separator + (compact ? value : sentence(value));
+    if (omitted.size || candidate.length > format.limit) omitted.add(label);
+    else text = candidate;
   }
-  add('의상', compact ? outfit.en : 'The subject wears ' + withArticle(outfit.en));
-  add('포즈', shot.bodyPose && fragment(shot.bodyPose));
-  add('배경', backdrop && (compact ? backdrop : 'The setting is ' + backdrop));
-  add('시간대', context.time && fragment(context.time.en));
-  add('날씨', context.weather && fragment(context.weather.en));
-  return {text, omitted};
+  return {text, omitted:[...omitted]};
 }
 
 function build(groups, n, neutralTotal, closeTotal, options) {

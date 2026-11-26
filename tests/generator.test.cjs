@@ -73,15 +73,14 @@ test('portrait essentials lead every model and oversize extras are omitted as wh
       assert.match(body, /entire face in frame/i);
       assert.match(body, /forehead.*brows/i);
       const label = await row.locator('.variant .small').nth(i).innerText();
-      assert.match(label, /공통 추가 지시/);
-      if (!body.includes('Preserve freckles.')) assert.match(label, /추가 촬영 조건/);
-      assert.doesNotMatch(body, /OVERSIZE|xxxx|undefined|null/);
+      assert.match(label, /공통 추가 지시.*추가 촬영 조건.*의상/);
+      assert.doesNotMatch(body, /OVERSIZE|xxxx|Preserve freckles|undefined|null/);
       assert.ok(body.length <= promptLimits[i], body);
     }
   }
 });
 
-test('Midjourney keeps the face and light before optional details at the character boundary', async t => {
+test('Midjourney keeps the ordered prefix and cuts all items after the first overflow', async t => {
   const page = await openPage(t);
   await page.evaluate(() => { Math.random = () => 0.4; });
   await selectOnly(page, 2, 1);
@@ -97,12 +96,17 @@ test('Midjourney keeps the face and light before optional details at the charact
   assert.match(essential, lighting);
   const custom = 'Custom detail '.padEnd(300 - essential.length - 2, 'x');
   await page.locator('.advanced summary').click();
-  await page.locator('#prefix').fill('x'.repeat(500) + '\n' + custom);
+  await page.locator('#prefix').fill(custom);
   await generate(page);
   assert.equal((await prompts(page))[0], essential + ', ' + custom + ' --raw --s 0');
   const label = await page.locator('.variant .small').innerText();
   assert.match(label, /본문 300자/);
-  assert.match(label, /공통 추가 지시.*의상.*배경/);
+  assert.match(label, /의상.*배경/);
+  await page.locator('#prefix').fill(custom + 'x\nShort cue');
+  await page.locator('#suffix').fill('Short detail');
+  await generate(page);
+  assert.equal((await prompts(page))[0], essential + ' --raw --s 0');
+  assert.match(await page.locator('.variant .small').innerText(), /공통 추가 지시.*추가 촬영 조건.*의상.*배경.*시간대.*날씨/);
 });
 
 test('first batch makes Midjourney prompts for a Soul ID dataset', async t => {
