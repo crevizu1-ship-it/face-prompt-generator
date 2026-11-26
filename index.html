@@ -6,12 +6,11 @@
 .model-picker{margin:12px 0 4px}.model-picker .actions{margin:4px 0}.result-row{grid-template-columns:24px minmax(0,1fr)}.variant{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:start}.variant+.variant{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}.variant .copy{grid-column:2;grid-row:1 / span 2}.model-name{font-weight:700}.variant .prompt{grid-column:1}button:disabled{opacity:.5;cursor:default}
 button.copied{background:var(--soft);border-color:var(--accent);color:var(--accent)}
 .append-controls{align-items:center;gap:8px;padding-top:12px;border-top:1px solid var(--line)}.append-controls input[type=number]{width:76px}
-.mj-tools{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:8px}.mj-tools .actions{align-items:center;gap:8px}#mjCopyMode{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px;max-width:100%}.mj-tools a{color:var(--accent)}
+.mj-tools{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:8px}.mj-tools .actions{align-items:center;gap:8px}.model-setting select{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px;max-width:100%}.mj-tools a{color:var(--accent)}
 .model-setting{margin-top:12px}.model-setting label{display:block}.model-setting input[type=number]{width:86px}.model-setting .actions{align-items:center}.model-setting .quick{margin:0}.model-section .primary{margin-bottom:0}.controls .environment{grid-column:1/-1}@media(min-width:651px){.controls{grid-template-columns:1fr 1fr}}
 @media(min-width:651px){.metrics{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .generate-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 6px}.generate-actions .primary{margin:0}.generate-actions button{font-weight:700;padding:12px}.reference-help a{color:var(--accent)}@media(max-width:500px){.generate-actions{grid-template-columns:1fr}}
 .result-head{flex-wrap:wrap}.list-change{color:var(--accent);font-weight:600}
-@media(min-width:651px){.generate-actions{grid-template-columns:repeat(3,1fr)}}
 .mj-input:not(:disabled){background:var(--accent);color:var(--panel);font-weight:700}.archive{border:0;margin:8px 0 0}.archive summary{padding:0;color:var(--muted);font-size:12px}.archive button{margin-top:6px}
 </style></head><body><main>
 <header><div class="eyebrow">FACE DATASET STUDIO</div><h1>얼굴 학습 프롬프트 생성기</h1><p class="muted">캐릭터 얼굴 학습용 모델별 랜덤 프롬프트 · <a id="offlineDownload" href="./index.html" download="face-prompt-generator.html" style="color:var(--accent)">오프라인용 HTML 저장</a></p></header>
@@ -49,9 +48,17 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
 </section>
 <h2>02 · 스타일 라이브러리</h2><div id="libraries"></div>
 <section class="model-section">
-  <h2 id="modelHeading">03 · 생성 모델</h2>
-  <fieldset class="environment model-picker" aria-labelledby="modelHeading"><div class="actions" id="models"></div></fieldset>
+  <h2>03 · 이미지 제작 및 학습</h2>
+  <fieldset class="environment model-picker"><legend>이미지 제작 툴 · 복수 선택 가능</legend><div class="actions" id="models"></div></fieldset>
   <p id="soulModelHelp" class="muted reference-help" hidden>학습 후에는 Soul 2.0의 Character에서 인물을 선택하고 장면 문구를 붙여넣으세요. 참조 사진을 별도로 첨부하면 프롬프트 입력창이 비활성화됩니다. <a href="https://higgsfield.ai/creator-hub/help-center/ai-models/how-do-i-use-soul-to-generate-images" target="_blank" rel="noopener noreferrer">Soul 생성 안내 ↗</a></p>
+  <div class="model-setting">
+    <label for="trainingTarget">학습 툴</label>
+    <select id="trainingTarget" aria-describedby="targetHint">
+      <option value="soul" selected>Higgsfield Soul ID</option>
+      <option value="recommended">일반 얼굴 학습 (공통 기준)</option>
+    </select>
+    <p id="targetHint" class="muted"></p>
+  </div>
   <div class="model-setting" id="mjPlan" hidden>
     <label for="mjCopyMode">미드저니 요금제 / 복사 방식</label>
     <select id="mjCopyMode">
@@ -78,19 +85,16 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
     </div>
   </div>
   <div class="model-setting">
-    <label><input id="clearForehead" type="checkbox" checked> 학습용 추천·Soul ID 후보에서 이마와 눈썹 드러내기</label>
+    <label><input id="clearForehead" type="checkbox" checked> 학습용 이미지에서 이마와 눈썹 드러내기</label>
   </div>
   <div class="generate-actions">
-    <button id="generate" class="primary">랜덤 프롬프트 생성</button>
-    <button id="recommend" aria-describedby="recommendHint">얼굴 학습용 추천 생성</button>
-    <button id="soulTraining" aria-describedby="soulHint">Soul ID 학습용 후보 생성</button>
+    <button id="recommend" class="primary" aria-describedby="targetHint">학습용 프롬프트 생성</button>
+    <button id="generate">자유 랜덤 생성</button>
   </div>
-  <p id="recommendHint" class="muted">추천 생성은 기준 얼굴을 사용하고, 선택한 얼굴 방향을 고르게 배분합니다. 이마를 드러낼 때도 기준 사진의 머리 길이와 가르마를 따릅니다.</p>
-  <p id="soulHint" class="muted"></p>
 </section>
 <section>
   <div class="result-head">
-    <div><h2>04 · 생성 결과</h2><p id="listChange" class="list-change" role="status"></p><p class="muted" id="info"></p></div>
+    <div><h2>04 · 생성 결과</h2><p id="listChange" class="list-change" role="status"></p><p class="muted" id="listWorkflow"></p><p class="muted" id="info"></p></div>
     <div class="actions"><button id="copyAll">전체 복사</button><button id="save">TXT 저장</button><button id="clean">목록 비우기 (Clean)</button></div>
   </div>
   <div class="mj-tools" id="mjTools" hidden>
@@ -175,7 +179,7 @@ const neutral={ko:'무표정',en:'neutral facial expression, relaxed facial musc
 const closeUp = {ko:'얼굴 클로즈업', en:'face close-up portrait', crop:'face close-up', framing:'Frame their face in close-up.'};
 const waistUp = {ko:'상반신', en:'waist-up portrait', crop:'waist-up', framing:'Frame them from the waist up.'};
 const fullHeight = {ko:'전신', en:'full-length portrait from head to toe', crop:'head-to-toe full-length', framing:'Show the entire person from head to toe, feet in frame.'};
-const soulModel = 'Higgsfield Soul ID';
+const soulModel = 'Higgsfield Soul 2.0';
 const noBackground = {ko:'배경 미지정', en:''};
 const referenceHair = {ko:'참조 헤어 유지', en:'', reference:'same face and hairstyle as the reference image'};
 const sweptHair = {
@@ -332,14 +336,22 @@ function estimate() {
     $('fastEstimate').textContent = '새로 생성할 프롬프트 ' + n + '개 × 기본 이미지 4장 = 예상 ' + n * 4 + '장. Fast GPU 시간을 사용합니다.';
   }
   const neutrals = quota(n, 'ratio');
-  const closeUps = quota(n, 'frameRatio');
-  const soulClose = quota(n - 1, 'frameRatio');
-  $('soulHint').textContent = 'Soul ID 학습용 새 목록 · 전신 1개 · 얼굴 클로즈업 ' + soulClose + '개 · 상반신 ' + (n - 1 - soulClose) + '개';
+  const fullShots = $('trainingTarget').value === 'soul' ? 1 : 0;
+  const closeUps = quota(n - fullShots, 'frameRatio');
   const closePercent = Number($('frameRatio').value);
   $('ratioLabel').textContent = $('ratio').value + '%';
   $('estimate').textContent = '무표정 ' + neutrals + '개 · 미세 표정 ' + (n - neutrals) + '개';
   $('frameLabel').textContent = closePercent + '%';
-  $('frameEstimate').textContent = '얼굴 클로즈업 ' + closeUps + '개 · 상반신 ' + (100 - closePercent) + '% (' + (n - closeUps) + '개)';
+  $('frameEstimate').textContent = '학습용 새 목록 · 얼굴 클로즈업 ' + closeUps + '개 · 상반신 ' + (100 - closePercent) + '% (' + (n - fullShots - closeUps) + '개)' + (fullShots ? ' · 전신 1개' : '');
+}
+
+function syncTrainingTarget() {
+  const soul = $('trainingTarget').value === 'soul';
+  $('recommend').textContent = soul ? 'Soul ID 학습용 프롬프트 생성' : '일반 얼굴 학습용 프롬프트 생성';
+  $('targetHint').textContent = soul
+    ? '선택한 제작 툴에서 같은 인물의 학습 후보를 만듭니다. 각도와 표정을 바꾸고 새 목록마다 전신 한 컷을 포함합니다.'
+    : '선택한 제작 툴에서 같은 기준 얼굴로 클로즈업과 상반신을 만듭니다. 선택한 얼굴 방향을 고르게 배분합니다.';
+  estimate();
 }
 function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
 function balanced(a,n){if(!a.length&&n)throw Error('Empty library');let b=[];while(b.length<n)b.push(...shuffle(a));return b.slice(0,n)}
@@ -443,7 +455,7 @@ function soulPrompt(shot, options) {
   const {frame, angle, expression, hair, outfit, background, environment} = shot;
   const scene = joinPhrases([background.en, ...environment.map(item => item.en)]);
   return [
-    sentence('A ' + frame.en + ' of ' + (options.soulTraining ? 'one person' : 'the selected character') + ' wearing ' + withArticle(outfit.en)),
+    sentence('A ' + frame.en + ' of the selected character wearing ' + withArticle(outfit.en)),
     sentence(joinPhrases([angle.en, expression.en, shot.bodyPose, hair.en])),
     sentence(scene), sentence(options.prefix), sentence(options.soulDetails),
   ].filter(Boolean).join(' ');
@@ -612,7 +624,7 @@ async function copyNextMidjourney() {
   try { await copyAndMark(next, ['Midjourney'], text); }
   finally { pendingBundleCopies.delete(batch); updateMidjourneyControls(); }
 }
-function generate(append = false, mode = 'random') {
+function generate(append = false, mode = $('trainingTarget').value) {
   const recommended = mode !== 'random';
   const soulTraining = mode === 'soul';
   const fullShots = soulTraining && !append ? 1 : 0;
@@ -628,7 +640,7 @@ function generate(append = false, mode = 'random') {
   const hair = $('clearForehead').checked ? sweptHair : referenceHair;
   const details = joinPhrases([$('suffix').value.trim(), soulTraining && 'single subject, entire face in frame and unobstructed']);
   const scenes = build(groups, n, neutrals, closeUps, {
-    recommended, referenceHair: hair, previous: append ? output : [], fullShots, soulTraining,
+    recommended, referenceHair: hair, previous: append ? output : [], fullShots,
     weather: $('useWeather').checked, time: $('useTime').checked, lighting: $('useLighting').checked,
     prefix: $('prefix').value.trim(), params: $('params').value.trim(),
     suffix: joinPhrases([details, recommended && hair.reference]),
@@ -688,9 +700,14 @@ function renderResults(start = 0) {
   $('copyAll').hidden = models.includes('Midjourney');
   const results = $('results');
   if (!start) results.replaceChildren();
-  $('status').textContent = models.length ? '' : '03 · 생성 모델에서 모델을 하나 이상 선택하세요.';
+  const target = Array.from($('trainingTarget').options).find(option => option.value === listMode);
+  $('listWorkflow').textContent = output.length && models.length
+    ? '이미지 제작 · ' + models.join(', ') + (target ? ' / 학습 · ' + target.textContent : ' / 자유 랜덤') : '';
+  $('status').textContent = models.length ? '' : '이미지 제작 툴을 하나 이상 선택하세요.';
+  $('recommend').disabled = $('generate').disabled = !models.length;
   $('copyAll').disabled = $('save').disabled = !models.length || !output.length;
-  $('clean').disabled = $('append').disabled = !output.length;
+  $('clean').disabled = !output.length;
+  $('append').disabled = !models.length || !output.length;
   if (!models.length) {
     updateCopyMarks();
     return;
@@ -738,9 +755,9 @@ for (const name of Object.keys(formatters)) {
   $('models').append(label);
 }
 $('frameRatio').oninput = estimate;
-$('generate').onclick = () => generate();
-$('recommend').onclick = () => generate(false, 'recommended');
-$('soulTraining').onclick = () => generate(false, 'soul');
+$('generate').onclick = () => generate(false, 'random');
+$('recommend').onclick = () => generate();
+$('trainingTarget').onchange = syncTrainingTarget;
 $('ratio').oninput = estimate;
 $('count').oninput = estimate;
 for (const id of ['count', 'appendCount']) {
@@ -767,5 +784,5 @@ $('save').onclick = () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
-metrics(); syncGenerationControls(); generate();
+metrics(); syncGenerationControls(); syncTrainingTarget(); generate();
 </script></body></html>

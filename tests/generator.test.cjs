@@ -54,15 +54,22 @@ async function selectOnly(page, index, choice) {
   if (choice !== undefined) await group.locator('.choice input').nth(choice).check();
 }
 
-test('first batch has 16 neutral expressions and 14 face close-ups in 20 prompts', async t => {
+test('first batch makes Midjourney prompts for a Soul ID dataset', async t => {
   const page = await openPage(t);
+  assert.equal(await page.getByLabel('학습 툴', {exact:true}).inputValue(), 'soul');
+  assert.deepEqual(await page.locator('#models :checked').evaluateAll(inputs => inputs.map(input => input.value)), ['Midjourney']);
+  assert.match(await page.locator('#listWorkflow').innerText(), /Midjourney.*Higgsfield Soul ID/);
   const rows = await prompts(page);
   assert.equal(rows.length, 20);
   assert.equal(rows.filter(row => row.includes('neutral expression')).length, 16);
-  assert.equal(rows.filter(row => row.includes(framing[0])).length, 14);
+  assert.equal(rows.filter(row => row.includes(framing[0])).length, 13);
   assert.equal(rows.filter(row => row.includes(framing[1])).length, 6);
-  for (const row of rows) assert.doesNotMatch(row, /head-and-shoulders|soft even lighting/);
-  assert.match(await page.locator('#frameEstimate').innerText(), /14개.*6개/);
+  assert.equal(rows.filter(row => row.includes('head-to-toe')).length, 1);
+  for (const row of rows) {
+    assert.doesNotMatch(row, /Higgsfield|Soul ID|selected character|Train new character|head-and-shoulders|soft even lighting/i);
+    assert.match(row, /single subject.*entire face in frame.*--raw --s 0$/);
+  }
+  assert.match(await page.locator('#frameEstimate').innerText(), /13개.*6개.*전신 1개/);
 });
 
 test('random and recommended Midjourney input copies contain no forced aspect ratio or chaos', async t => {
@@ -91,6 +98,7 @@ test('Clean empties a recommended list and keeps selections for a new numbered l
   await model(page, 'GPT Image').check();
   await page.locator('#frameRatio').fill('100');
   await page.locator('#count').fill('3');
+  await page.locator('#trainingTarget').selectOption('recommended');
   await page.locator('#recommend').click();
   assert.match(await change.innerText(), /목록 #2.*추천 장면 3개 새로 생성/);
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async () => {}}}));
@@ -103,6 +111,8 @@ test('Clean empties a recommended list and keeps selections for a new numbered l
   assert.equal(await page.locator('.result-row').count(), 0);
   assert.match(await change.innerText(), /목록을 비웠습니다/);
   assert.equal(await page.locator('#info').innerText(), '');
+  assert.equal(await page.locator('#listWorkflow').innerText(), '');
+  assert.equal(await page.locator('#trainingTarget').inputValue(), 'recommended');
   for (const id of ['clean', 'copyAll', 'save', 'append']) assert.equal(await page.locator('#' + id).isDisabled(), true);
   for (const id of ['mjTools', 'referenceHelp']) assert.equal(await page.locator('#' + id).isVisible(), false);
   assert.equal(await page.locator('#copyAll').innerText(), '전체 복사');
@@ -137,7 +147,7 @@ test('Soul ID training reserves one uncropped full-height shot and keeps it when
   const page = await openPage(t);
   for (const input of await page.locator('#models input').all()) await input.check();
   await selectOnly(page, 0);
-  await page.locator('#soulTraining').click();
+  await page.locator('#recommend').click();
   assert.match(await page.locator('#info').innerText(), /무표정 16개.*클로즈업 13개.*상반신 6개.*전신 1개/);
   assert.equal(await page.locator('#soulUpload').isVisible(), true);
   const rows = page.locator('.result-row');
@@ -156,8 +166,9 @@ test('Soul ID training reserves one uncropped full-height shot and keeps it when
   assert.deepEqual((await prompts(page)).slice(0, first.length), first);
   assert.match(await page.locator('#info').innerText(), /클로즈업 16개.*상반신 6개.*전신 1개/);
   await page.locator('#count').fill('1');
-  await page.locator('#soulTraining').click();
+  await page.locator('#recommend').click();
   assert.match(await page.locator('#info').innerText(), /클로즈업 0개.*상반신 0개.*전신 1개/);
+  await page.locator('#trainingTarget').selectOption('recommended');
   await page.locator('#recommend').click();
   assert.equal(await full.count(), 0);
   assert.equal(await page.locator('#soulUpload').isVisible(), false);
@@ -165,7 +176,7 @@ test('Soul ID training reserves one uncropped full-height shot and keeps it when
 
 test('a trained Soul character gets its own copyable prompt without an extra image reference or Midjourney parameters', async t => {
   const page = await openPage(t);
-  await model(page, 'Higgsfield Soul ID').check();
+  await model(page, 'Higgsfield Soul 2.0').check();
   await model(page, 'Midjourney').uncheck();
   await page.locator('#count').fill('2');
   await page.locator('#recommend').click();
@@ -187,6 +198,7 @@ test('a trained Soul character gets its own copyable prompt without an extra ima
 
 test('recommended generation uses the reference and balanced views across all five reference-image models', async t => {
   const page = await openPage(t);
+  await page.locator('#trainingTarget').selectOption('recommended');
   for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL']) await model(page, name).check();
   await page.locator('#mjCopyMode').selectOption('40');
   await selectOnly(page, 0);
@@ -272,11 +284,11 @@ test('recommended append fills missing selected directions and random generation
 test('model, plan and scene count appear between the style library and generate button on both layouts', async t => {
   const page = await openPage(t);
   assert.deepEqual(await page.locator('main h2').allTextContents(), [
-    '01 · 생성 설정', '02 · 스타일 라이브러리', '03 · 생성 모델', '04 · 생성 결과',
+    '01 · 생성 설정', '02 · 스타일 라이브러리', '03 · 이미지 제작 및 학습', '04 · 생성 결과',
   ]);
   for (const width of [390, 1280]) {
     await page.setViewportSize({width, height:800});
-    const selectors = ['#libraries', '#models', '#mjCopyMode', '#count', '#generate', '.result-head', '#mjNext', '#results'];
+    const selectors = ['#libraries', '#models', '#trainingTarget', '#mjCopyMode', '#count', '#recommend', '.result-head', '#mjNext', '#results'];
     let previousBottom = 0;
     for (const selector of selectors) {
       const box = await page.locator(selector).boundingBox();
@@ -405,6 +417,7 @@ test('Pro/Mega sizes new and appended batches in units of forty without altering
 
 test('framing ratios round per batch, show estimates, and allow either framing alone', async t => {
   const page = await openPage(t);
+  await page.locator('#trainingTarget').selectOption('recommended');
   await page.locator('#count').fill('7');
   for (const [ratio, close] of [[0, 0], [35, 2], [50, 4], [100, 7]]) {
     await page.locator('#frameRatio').fill(String(ratio));
@@ -755,7 +768,7 @@ test('six model formats share the current scene, work offline and export by mode
   await generate(page);
   const firstPass = await prompts(page);
   const tags = await page.locator('.tagline').allTextContents();
-  const models = ['Midjourney', 'GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL', 'Higgsfield Soul ID'];
+  const models = ['Midjourney', 'GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL', 'Higgsfield Soul 2.0'];
   for (const name of models.slice(1)) await model(page, name).check();
   assert.deepEqual(await page.locator('.tagline').allTextContents(), tags);
   const rows = page.locator('.result-row');
@@ -798,6 +811,7 @@ test('six model formats share the current scene, work offline and export by mode
 
 test('append preserves rows and copy marks while adding current settings to totals and exports', async t => {
   const page = await openPage(t);
+  await generate(page);
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {value:{writeText:async text => { window.copiedText = text; }}}));
   const before = await prompts(page);
   await page.locator('#mjCopyMode').selectOption('10');
@@ -830,6 +844,36 @@ test('append preserves rows and copy marks while adding current settings to tota
   await page.locator('#append').click();
   assert.deepEqual(await prompts(page), after);
   assert.match(await page.locator('#status').innerText(), /하나 이상/);
+});
+
+test('switching the image tool reformats existing shots; a new training target applies to the next list', async t => {
+  const page = await openPage(t);
+  const workflow = page.locator('#listWorkflow');
+  const newList = page.getByRole('button', {name:'일반 얼굴 학습용 프롬프트 생성'});
+  const midjourney = await prompts(page);
+  const tags = await page.locator('.tagline').allTextContents();
+  await model(page, 'GPT Image').check();
+  await model(page, 'Midjourney').uncheck();
+  assert.match(await workflow.innerText(), /GPT Image.*Higgsfield Soul ID/);
+  assert.deepEqual(await page.locator('.tagline').allTextContents(), tags);
+  const gpt = await prompts(page);
+  assert.ok(gpt.every(text => text.startsWith('Create a ') && text.includes('single subject') && !text.includes('--raw')));
+  assert.equal(await page.locator('#mjTools').isVisible(), false);
+  await page.locator('#trainingTarget').selectOption('recommended');
+  assert.deepEqual(await prompts(page), gpt);
+  assert.match(await workflow.innerText(), /GPT Image.*Higgsfield Soul ID/);
+  await page.locator('#appendCount').fill('1');
+  await page.locator('#append').click();
+  assert.match((await prompts(page)).at(-1), /entire face in frame/);
+  await model(page, 'Midjourney').check();
+  await model(page, 'GPT Image').uncheck();
+  assert.deepEqual((await prompts(page)).slice(0, midjourney.length), midjourney);
+  await newList.click();
+  assert.match(await workflow.innerText(), /Midjourney.*일반 얼굴 학습/);
+  assert.ok((await prompts(page)).every(text => text.endsWith('--raw --s 0') && !/head-to-toe|single subject/.test(text)));
+  assert.equal(await page.locator('#soulUpload').isVisible(), false);
+  await generate(page);
+  assert.match(await workflow.innerText(), /Midjourney.*자유 랜덤/);
 });
 
 test('appended scenes keep their own Midjourney parameters and fresh generation replaces the list', async t => {
@@ -872,7 +916,7 @@ test('bulk copy started before append only marks the scenes actually copied', as
 
 test('model formats preserve custom text and omit unselected environment fields', async t => {
   const page = await openPage(t);
-  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL', 'Higgsfield Soul ID']) await model(page, name).check();
+  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL', 'Higgsfield Soul 2.0']) await model(page, name).check();
   await page.locator('#count').fill('1');
   await selectOnly(page, 4);
   await page.locator('.advanced summary').click();
@@ -901,7 +945,7 @@ test('the downloadable HTML starts by itself offline and formats all six models'
   await download.saveAs(filename);
   await page.context().setOffline(true);
   await page.goto(pathToFileURL(filename).href);
-  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL', 'Higgsfield Soul ID']) await model(page, name).check();
+  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL', 'Higgsfield Soul 2.0']) await model(page, name).check();
   await page.locator('#count').fill('200');
   await generate(page);
   assert.equal(await page.locator('.result-row').count(), 200);
