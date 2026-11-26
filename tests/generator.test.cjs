@@ -45,7 +45,7 @@ async function openPage(t) {
 
 const prompts = page => page.locator('.prompt').allTextContents();
 const generate = page => page.locator('#generate').click();
-const promptLimits = [300, 460, 460, 400, 360, 360];
+const promptLimits = [160, 460, 460, 400, 360, 360];
 const model = (page, name) => page.getByRole('checkbox', {name, exact:true});
 const bucket = (page, index) => page.locator('#libraries details').nth(index);
 async function selectOnly(page, index, choice) {
@@ -68,9 +68,10 @@ test('portrait essentials lead every model and oversize extras are omitted as wh
     for (const [i, prompt] of (await row.locator('.prompt').allTextContents()).entries()) {
       const body = prompt.split(' --')[0];
       assert.match(body.slice(0, 65), /ultra-realistic|photorealistic/i);
-      assert.match(body.slice(0, 120), i === 5 ? /selected character/i : /reference/i);
-      assert.match(body, /natural skin texture/i);
-      assert.match(body, /entire face in frame/i);
+      const identity = i === 0 ? /same person/i : i === 5 ? /selected character/i : /reference/i;
+      assert.match(body.slice(0, 120), identity);
+      assert.match(body, /natural skin/i);
+      assert.match(body, i === 0 ? /full face/i : /entire face in frame/i);
       assert.match(body, /forehead.*brows/i);
       const label = await row.locator('.variant .small').nth(i).innerText();
       assert.match(label, /공통 추가 지시.*추가 촬영 조건.*의상/);
@@ -83,6 +84,8 @@ test('portrait essentials lead every model and oversize extras are omitted as wh
 test('Midjourney keeps the ordered prefix and cuts all items after the first overflow', async t => {
   const page = await openPage(t);
   await page.evaluate(() => { Math.random = () => 0.4; });
+  await selectOnly(page, 0, 0);
+  await selectOnly(page, 1, 0);
   await selectOnly(page, 2, 1);
   await selectOnly(page, 4, 33);
   await page.locator('#count').fill('1');
@@ -92,15 +95,15 @@ test('Midjourney keeps the ordered prefix and cuts all items after the first ove
   const index = initial.indexOf(', ' + wardrobe);
   assert.ok(index > 0, initial);
   const essential = initial.slice(0, index);
-  assert.match(essential, /natural skin texture/);
+  assert.match(essential, /natural skin/);
   assert.match(essential, lighting);
-  const custom = 'Custom detail '.padEnd(300 - essential.length - 2, 'x');
+  const custom = 'Custom detail '.padEnd(promptLimits[0] - essential.length - 2, 'x');
   await page.locator('.advanced summary').click();
   await page.locator('#prefix').fill(custom);
   await generate(page);
   assert.equal((await prompts(page))[0], essential + ', ' + custom + ' --raw --s 0');
   const label = await page.locator('.variant .small').innerText();
-  assert.match(label, /본문 300자/);
+  assert.match(label, /본문 160자/);
   assert.match(label, /의상.*배경/);
   await page.locator('#prefix').fill(custom + 'x\nShort cue');
   await page.locator('#suffix').fill('Short detail');
@@ -116,13 +119,19 @@ test('first batch makes Midjourney prompts for a Soul ID dataset', async t => {
   assert.match(await page.locator('#listWorkflow').innerText(), /Midjourney.*Higgsfield Soul ID/);
   const rows = await prompts(page);
   assert.equal(rows.length, 20);
-  assert.equal(rows.filter(row => row.includes('neutral expression')).length, 16);
+  for (const row of rows) {
+    const body = row.replace(/ --raw --s 0$/, '');
+    assert.ok(body.length <= promptLimits[0], body);
+    assert.match(body, /^Photorealistic .*same person/);
+    assert.match(body, /natural skin.*face.*forehead.*brows/i);
+  }
+  assert.equal(rows.filter(row => row.includes('neutral, lips closed')).length, 16);
   assert.equal(rows.filter(row => row.includes(framing[0])).length, 13);
   assert.equal(rows.filter(row => row.includes(framing[1])).length, 6);
   assert.equal(rows.filter(row => row.includes('head-to-toe')).length, 1);
   for (const row of rows) {
     assert.doesNotMatch(row, /Higgsfield|Soul ID|selected character|Train new character|head-and-shoulders|soft even lighting/i);
-    assert.match(row, /solo.*entire face in frame.*--raw --s 0$/);
+    assert.match(row, /same person.*full face.*--raw --s 0$/);
   }
   assert.match(await page.locator('#frameEstimate').innerText(), /13개.*6개.*전신 1개/);
 });
@@ -211,7 +220,7 @@ test('Soul ID training reserves one uncropped full-height shot and keeps it when
   assert.equal(await full.locator('.prompt').count(), 6);
   for (const text of await full.locator('.prompt').allTextContents()) {
     assert.match(text, /head.to.toe/i);
-    assert.match(text, /entire face in frame/i);
+    assert.match(text, /entire face in frame|full face.*clear/i);
     assert.doesNotMatch(text, /waist-up|waist up|face close-up|undefined/i);
   }
   const first = await prompts(page);
@@ -293,10 +302,10 @@ test('recommended generation uses the reference and balanced views across all fi
   for (const {tag, variants} of rows) {
     assert.match(tag, /이마·눈썹 드러냄/);
     assert.equal(variants.length, 5);
-    for (const {text, label} of variants) {
-      assert.match(text, /reference (?:person|image)/i);
-      assert.match(text, /hair color(?:, length and part|\/length\/part)/i);
-      assert.match(text, /forehead.*hairline.*brows/i);
+    for (const [index, {text, label}] of variants.entries()) {
+      assert.match(text, index === 0 ? /same person/i : /reference (?:person|image)/i);
+      if (index > 0) assert.match(text, /hair color(?:, length and part|\/length\/part)/i);
+      assert.match(text, /forehead.*brows/i);
       assert.doesNotMatch(text, /undefined|null|with\s+wearing|,\s*,/);
       assert.equal(/relaxed shoulders/i.test(text) || label.includes('포즈'), tag.startsWith('상반신'));
     }
@@ -317,15 +326,15 @@ test('forehead styling applies to new recommended scenes only and leaves selecte
   await page.locator('#count').fill('1');
   await page.locator('#recommend').click();
   const original = await prompts(page);
-  assert.match(original[0], /clear forehead, hairline and brows/);
+  assert.match(original[0], /forehead and brows clear/);
   assert.ok(original.every(text => !text.includes('blunt bangs')));
   await setting.uncheck();
   await page.locator('#append').click();
   const appended = await prompts(page);
   assert.deepEqual(appended.slice(0, 5), original);
   for (const text of appended.slice(5)) {
-    assert.match(text, /reference (?:image|person)/i);
-    assert.match(text, /keep the same hairstyle/i);
+    assert.match(text, /reference (?:image|person)|same person/i);
+    assert.match(text, /same hair/i);
     assert.doesNotMatch(text, /forehead|hairline|blunt bangs/i);
   }
   assert.match(await page.locator('.tagline').last().innerText(), /참조 헤어 유지/);
@@ -352,8 +361,8 @@ test('recommended append fills missing selected directions and random generation
   await page.locator('#append').click();
   const all = await prompts(page);
   assert.deepEqual(all.slice(0, 4), first);
-  assert.ok(all.slice(4).some(text => text.includes('left 3/4 view')));
-  assert.ok(all.slice(4).some(text => text.includes('full right side profile')));
+  assert.ok(all.slice(4).some(text => text.includes('left 3/4')));
+  assert.ok(all.slice(4).some(text => text.includes('right profile')));
   assert.match(await page.locator('#directionSummary').innerText(), /정면 4개.*왼쪽 사선 1개.*오른쪽 사선 0개.*왼쪽 옆얼굴 0개.*오른쪽 옆얼굴 1개/);
   await generate(page);
   assert.equal(await page.locator('#referenceHelp').isVisible(), false);
@@ -508,7 +517,7 @@ test('framing ratios round per batch, show estimates, and allow either framing a
     assert.equal(rows.length, 7);
     assert.equal(rows.filter(row => row.includes(framing[0])).length, close);
     assert.equal(rows.filter(row => row.includes(framing[1])).length, 7-close);
-    assert.equal(rows.filter(row => row.includes('neutral expression')).length, 6);
+    assert.equal(rows.filter(row => row.includes('neutral, lips closed')).length, 6);
   }
 });
 
@@ -542,6 +551,8 @@ test('all 40 backgrounds use their own environment, with varied compatible outdo
 
 test('all eight independent switch settings reach the rendered prompt', async t => {
   const page = await openPage(t);
+  await model(page, 'Stable Diffusion XL').check();
+  await model(page, 'Midjourney').uncheck();
   await selectOnly(page, 4, 33); // beach
   await selectOnly(page, 0, 0);
   await selectOnly(page, 1, 0);
@@ -577,7 +588,7 @@ test('existing style choices, empty background, count limits and expression vali
   const rows = await prompts(page);
   assert.equal(rows.length, 30);
   for (const row of rows) {
-    for (const part of ['long straight hair', 'front view, head upright', 'plain white crew-neck T-shirt', 'subtle closed-mouth smile']) assert.ok(row.includes(part));
+    for (const part of ['long straight hair', 'front view', 'plain white crew-neck T-shirt', 'subtle closed-mouth smile']) assert.ok(row.includes(part));
     assert.doesNotMatch(row, weather);
     assert.doesNotMatch(row, time);
     assert.doesNotMatch(row, lighting);
@@ -603,6 +614,10 @@ test('existing style choices, empty background, count limits and expression vali
 
 test('the chosen body pose follows the crop and matches across all five model prompts', async t => {
   const page = await openPage(t);
+  await selectOnly(page, 0, 0);
+  await selectOnly(page, 1, 0);
+  await selectOnly(page, 2, 1);
+  await selectOnly(page, 4);
   const group = page.locator('#libraries details').filter({has:page.locator('summary', {hasText:'포즈'})});
   await group.locator('summary').click();
   await group.getByRole('button', {name:'전체 해제'}).click();
@@ -637,6 +652,8 @@ test('the chosen body pose follows the crop and matches across all five model pr
 
 test('all eligible poses are sampled evenly within each crop', async t => {
   const page = await openPage(t);
+  await model(page, 'Stable Diffusion XL').check();
+  await model(page, 'Midjourney').uncheck();
   const group = page.locator('#libraries details').filter({has:page.locator('summary', {hasText:'포즈'})});
   await group.locator('summary').click();
   const phrases = await group.locator('.choice small').allTextContents();
@@ -653,13 +670,14 @@ test('all eligible poses are sampled evenly within each crop', async t => {
 
 test('custom fields, single and bulk copy, and the TXT download use the displayed text', async t => {
   const page = await openPage(t);
+  await selectOnly(page, 4);
   await page.locator('.advanced summary').click();
   await page.locator('#prefix').fill('custom portrait');
   await page.locator('#suffix').fill('custom detail');
   await page.locator('#params').fill('--ar 4:5');
   await generate(page);
   const rows = await prompts(page);
-  assert.ok(rows.every(row => row.startsWith('Ultra-realistic ') && row.includes('custom portrait, custom detail') && row.endsWith(' --ar 4:5')));
+  assert.ok(rows.every(row => row.startsWith('Photorealistic ') && row.includes('custom portrait, custom detail') && row.endsWith(' --ar 4:5')));
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
     value: {writeText: async value => { window.copiedText = value; }}
   }));
@@ -872,7 +890,8 @@ test('six model formats share the current scene, work offline and export by mode
     for (const [j, text] of texts.entries()) {
       assert.match(text, /long straight hair/i);
       assert.match(text, /navy (?:blue )?T-shirt/i);
-      assert.match(text, /beach/i);
+      if (j === 0 && !/beach/i.test(text)) assert.match(await row.locator('.variant .small').first().innerText(), /생략한 항목.*배경/);
+      else assert.match(text, /beach/i);
       assert.match(text, /neutral/i);
       assert.equal(text.includes('--raw'), j === 0);
       exported.push('[' + String(i + 1).padStart(2,'0') + ' · ' + models[j] + ']\n' + text);
@@ -908,6 +927,7 @@ test('append preserves rows and copy marks while adding current settings to tota
   await page.locator('#mjNext').click();
   await page.locator('#ratio').fill('0');
   await page.locator('#frameRatio').fill('100');
+  await selectOnly(page, 4);
   await page.locator('.advanced summary').click();
   await page.locator('#prefix').fill('additional portrait');
   await page.locator('#appendCount').fill('3');
@@ -915,7 +935,7 @@ test('append preserves rows and copy marks while adding current settings to tota
   const after = await prompts(page);
   assert.equal(after.length, 23);
   assert.deepEqual(after.slice(0, 20), before);
-  assert.ok(after.slice(20).every(text => text.startsWith('Ultra-realistic face close-up') && text.includes('additional portrait') && !text.includes('neutral expression')));
+  assert.ok(after.slice(20).every(text => text.startsWith('Photorealistic face close-up') && text.includes('additional portrait') && !text.includes('neutral, lips closed')));
   assert.equal(await page.locator('.copy.copied').count(), 20);
   assert.doesNotMatch(await page.locator('#copyArchive').textContent(), /✓/);
   assert.match(await page.locator('#info').innerText(), /장면 23개.*무표정 16개.*미세 표정 7개.*클로즈업 17개.*상반신 6개/);
@@ -1008,6 +1028,8 @@ test('model formats preserve custom text and omit unselected environment fields'
   const page = await openPage(t);
   for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL', 'Higgsfield Soul 2.0']) await model(page, name).check();
   await page.locator('#count').fill('1');
+  await selectOnly(page, 0, 0);
+  await selectOnly(page, 1, 0);
   await selectOnly(page, 4);
   await page.locator('.advanced summary').click();
   const prefix = 'Preserve the asymmetry of the smile.';

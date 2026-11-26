@@ -387,9 +387,42 @@ const joinPhrases = parts => parts.filter(Boolean).join(', ');
 const sentence = text => text && (/[.!?]$/.test(text) ? text : text + '.');
 const withArticle = text => (/^[aeiou]/i.test(text) ? 'an ' : 'a ') + text;
 
+function midjourneyRequired(shot, options) {
+  const {frame, angle, expression, hair} = shot;
+  const crop = frame === fullHeight ? 'head-to-toe' : frame.crop;
+  const view = angle.en
+    .replace('straight-on front view, head upright', 'front view')
+    .replace(/three-quarter(?: view| portrait)?/, '3/4')
+    .replace(/^(?:full )?(left|right) side profile/, '$1 profile')
+    .replace(/^head turned slightly /, 'slight turn ')
+    .replace(/, chin (slightly )?(raised|lowered)/, (_, slightly, direction) =>
+      ', chin ' + (direction === 'raised' ? 'up' : 'down') + (slightly ? ' slightly' : ''))
+    .replace(/head tilted toward (left|right) shoulder/, 'tilted $1')
+    .replace('gentle sideways head tilt', 'slight tilt')
+    .replace('head bowed downward', 'head bowed')
+    .replace(/front view from a slightly (high|low) camera angle/, '$1-angle front view')
+    .replace(/slightly (high|low)-angle portrait, head upright/, '$1-angle portrait')
+    .replace(/looking back over (left|right) shoulder, face clearly visible/, 'over $1 shoulder')
+    .replace(/(left|right) 3\/4 over the (?:left|right) shoulder/, '$1 3/4 over shoulder');
+  const face = expression === neutral ? 'neutral, lips closed'
+    : expression.en.replace(/^very subtle /, 'subtle ').replace(/^very mildly /, 'slightly ').replace(/ facial expression$/, ' expression');
+  const visibility = options.soulTraining && 'full face clear';
+  const hairstyle = hair === sweptHair
+    ? (options.soulTraining ? 'full face, forehead and brows clear' : 'forehead and brows clear')
+    : joinPhrases([visibility, hair === referenceHair ? 'same hair' : hair.en]);
+  return [
+    'Photorealistic ' + crop,
+    options.recommended && 'same person',
+    'natural skin',
+    view,
+    face,
+    hairstyle,
+  ];
+}
+
 // Editorial limits for each prompt body. Midjourney parameters are appended separately.
 const promptFormats = {
-  Midjourney: {limit:300, separator:', ', intro:(frame, who) => 'Ultra-realistic ' + frame.crop + ' photo of ' + who},
+  Midjourney: {limit:160, separator:', '},
   'GPT Image': {limit:460, separator:'\n', intro:(frame, who) => 'Create a photorealistic ' + frame.en + ' of ' + who},
   'Gemini (Nano Banana)': {limit:460, separator:' ', intro:(frame, who) => 'Take an ultra-realistic photograph of ' + who + ', ' + frame.en},
   'FLUX.2': {limit:400, separator:' ', intro:(frame, who) => 'An ultra-realistic ' + frame.en + ' of ' + who},
@@ -404,14 +437,13 @@ function renderPrompt(name, shot, options) {
   const midjourney = name === 'Midjourney';
   const subject = name === soulModel ? 'the selected character'
     : options.recommended ? (compact ? 'the reference person' : 'the person in the reference image') : 'one person';
-  const view = midjourney ? angle.en.replace('straight-on front view', 'front view').replace('three-quarter', '3/4').replace(', face clearly visible', '') : angle.en;
   const face = expression === neutral ? 'neutral expression, closed lips' : expression.en.replace('very subtle ', 'subtle ');
   const visibility = options.soulTraining ? (compact ? 'solo, entire face in frame, unobstructed' : 'single subject, entire face in frame and unobstructed') : '';
   const skin = compact ? 'natural skin texture' : 'natural skin texture, fine pores';
-  const required = [
+  const required = midjourney ? midjourneyRequired(shot, options) : [
     format.intro(frame, subject),
     joinPhrases([skin, visibility]),
-    joinPhrases([view, face]),
+    joinPhrases([angle.en, face]),
     compact && hair.short ? hair.short : hair.en,
   ];
 

@@ -34,7 +34,7 @@ Fast를 선택하면 기존 목록과 추가 장면 모두 미드저니 출력 �
 
 | 모델 | 이 생성기의 출력 방식 | 공식 작성 가이드 |
 |---|---|---|
-| Midjourney | 실사 사진·구도·인물을 첫 구절에 쓰고, 얼굴과 표정을 짧은 시각 표현으로 묘사합니다. 전용 파라미터는 맨 끝에 붙입니다. | [Midjourney Prompt Basics](https://docs.midjourney.com/hc/en-us/articles/32023408776205-Prompt-Basics) |
+| Midjourney | 실사 구도, 인물, 피부, 각도와 표정을 짧은 구절로 묘사합니다. 조명과 장면 정보는 본문 160자 안에서 우선순위대로 붙입니다. | [Midjourney Prompt Basics](https://docs.midjourney.com/hc/en-us/articles/32023408776205-Prompt-Basics) |
 | GPT Image | 어떤 인물의 실사 사진을 만들지 먼저 지시하고, 얼굴 묘사와 촬영 조건을 여러 줄로 정리합니다. | [OpenAI Image prompting](https://developers.openai.com/api/docs/guides/image-prompting) |
 | Gemini (Nano Banana) | 인물이 무엇을 입고 어떤 구도로 어디에서 촬영되는지 자연스러운 문단으로 묘사합니다. | [Google 이미지 생성 가이드](https://ai.google.dev/gemini-api/docs/image-generation) |
 | FLUX.2 | 실사 인물 사진의 구도와 얼굴 특징으로 시작하는 캡션을 작성합니다. | [Black Forest Labs FLUX.2 가이드](https://docs.bfl.ai/guides/prompting_guide_flux2) |
@@ -45,7 +45,7 @@ Fast를 선택하면 기존 목록과 추가 장면 모두 미드저니 출력 �
 
 **비필수 항목**은 조명 → 공통 추가 지시 → 추가 촬영 조건 → 의상 → 포즈 → 배경 → 시간대 → 날씨 순으로 붙입니다. 추가 지시는 중요한 순서대로 한 줄에 하나씩 쓰세요. 다음 문구가 본문 한도를 넘으면 그 문구부터 뒤에 있는 항목을 모두 생략합니다. 결과에 글자 수와 생략한 항목을 표시합니다.
 
-생성기의 본문 한도는 **Midjourney 300자, GPT Image·Gemini 460자, FLUX.2 400자, SDXL·Soul 2.0 360자**입니다. 미드저니 파라미터는 끝에 별도로 붙습니다.
+생성기의 본문 한도는 **Midjourney 160자, GPT Image·Gemini 460자, FLUX.2 400자, SDXL·Soul 2.0 360자**입니다. 미드저니 파라미터는 끝에 별도로 붙습니다.
 
 개별 복사는 해당 장면의 프롬프트만 복사합니다. 보관용 복사와 TXT 저장은 화면에 선택한 모델을 따르며, 여러 모델을 비교할 때는 장면 번호와 모델명도 함께 기록합니다.
 
