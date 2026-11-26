@@ -248,6 +248,7 @@ function environmentFor(background, options) {
   return {weather: options.weather && weather, time: options.time && time, lighting: options.lighting && lighting};
 }
 const $=id=>document.getElementById(id);let output=[];
+let midjourneyStart = 0;
 let listMode = 'random';
 const listLabels = {random:'랜덤 장면', recommended:'추천 장면', soul:'Soul ID 학습 후보'};
 let listNumber = 0;
@@ -612,7 +613,7 @@ function needsSinglePrompt(item) {
   return /[{}]|(?:^|\s)--(?:r|repeat|relax)(?=\s|$)/i.test(promptText(item, 'Midjourney')) || /\\(?:,|$)/.test(item.prompts.Midjourney.text);
 }
 function midjourneyQueue() {
-  const remaining = output.filter(item => !item.copied.has('Midjourney'));
+  const remaining = output.slice(midjourneyStart).filter(item => !item.copied.has('Midjourney'));
   const limit = Number($('mjCopyMode').value);
   const first = remaining[0];
   if (!first) return {remaining, next: [], singleOnly: false};
@@ -631,12 +632,14 @@ function updateMidjourneyControls() {
   $('mjTools').hidden = !output.length || !selectedModels().includes('Midjourney');
   if ($('mjTools').hidden) return;
   const {remaining, next, singleOnly} = midjourneyQueue();
-  const done = output.length - remaining.length;
-  $('mjProgress').textContent = done + ' / ' + output.length + '개 복사됨';
+  const total = output.length - midjourneyStart;
+  const done = total - remaining.length;
+  const range = total === 1 ? String(output.length) : (midjourneyStart + 1) + '–' + output.length;
+  $('mjProgress').textContent = (midjourneyStart ? '추가분 ' + range + '번 · ' : '') + done + ' / ' + total + '개 복사됨';
   const button = $('mjNext');
   button.disabled = pendingBundleCopies.has(output) || !next.length;
   button.classList.toggle('copied', !remaining.length);
-  if (!next.length) button.textContent = '✓ 모두 복사됨';
+  if (!next.length) button.textContent = midjourneyStart ? '✓ 추가분 복사 완료' : '✓ 모두 복사됨';
   else if (next.length === 1) button.textContent = '미드저니 입력용 복사 (' + (output.indexOf(next[0]) + 1) + '번)';
   else button.textContent = '미드저니 입력용 묶음 복사 (' + next.length + '개)';
   let help = 'Fast 또는 Turbo에서 묶음을 Imagine 입력창에 붙여넣고 전송하세요. GPU 시간은 장면별로 사용됩니다.';
@@ -644,7 +647,7 @@ function updateMidjourneyControls() {
   else if ($('mjCopyMode').value === '1') help = '복사한 항목을 Imagine 입력창에 붙여넣고 전송한 뒤, 같은 버튼으로 다음 장면을 복사하세요.';
   else if (fastMode()) help = next.length
     ? '이번 복사 ' + next.length + '개 · 기본 이미지 ' + next.length * 4 + '장 예상. 전송하면 Fast GPU 시간이 사용됩니다.'
-    : '이 목록의 미드저니 프롬프트를 모두 복사했습니다.';
+    : (midjourneyStart ? '이번 추가분의' : '이 목록의') + ' 미드저니 프롬프트를 모두 복사했습니다.';
   $('mjHelp').textContent = help;
 }
 
@@ -683,6 +686,7 @@ function generate(append = false, mode = $('trainingTarget').value) {
     prefix: $('prefix').value.trim(), suffix: $('suffix').value.trim(), params: $('params').value.trim(),
   });
   const start = append ? output.length : 0;
+  midjourneyStart = start;
   if (append) output.push(...scenes);
   else {
     output = scenes;
@@ -714,6 +718,7 @@ function generate(append = false, mode = $('trainingTarget').value) {
 
 function clearResults() {
   output = [];
+  midjourneyStart = 0;
   listMode = 'random';
   copiedSelections.clear();
   $('info').textContent = '';

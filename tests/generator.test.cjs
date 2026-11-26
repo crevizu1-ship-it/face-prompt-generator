@@ -480,7 +480,8 @@ test('Fast mode applies only to Midjourney and consistently switches speed in di
   assert.equal(await page.locator('#fastHint').isVisible(), false);
   assert.doesNotMatch(await page.locator('#copyArchive').innerText(), /✓/);
   await page.locator('#mjNext').click();
-  assert.equal(await page.evaluate(() => window.copiedText), before[2]);
+  assert.equal(await page.evaluate(() => window.copiedText), (await prompts(page))[4]);
+  assert.equal(await page.locator('.copy.copied').count(), 2);
   await page.locator('#mjCopyMode').selectOption('40');
   assert.equal(await page.locator('#count').getAttribute('step'), '40');
 });
@@ -815,6 +816,40 @@ test('Midjourney clipboard bundles expand to exactly the original scenes for eac
   }
 });
 
+test('Standard copies only the latest appended scenes in groups of ten', async t => {
+  const page = await openPage(t);
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
+    value: {writeText: async text => { window.copiedText = text; }},
+  }));
+  await page.locator('#mjCopyMode').selectOption('10');
+  const next = page.locator('#mjNext');
+  const progress = page.locator('#mjProgress');
+  await next.click();
+  assert.equal(await page.locator('.copy.copied').count(), 10);
+  await page.locator('#appendCount').fill('12');
+  await page.locator('#append').click();
+  const all = await prompts(page);
+  assert.match(await progress.innerText(), /21–32번.*0 \/ 12개/);
+  for (const [start, end] of [[20, 30], [30, 32]]) {
+    await next.click();
+    const payload = await page.evaluate(() => window.copiedText);
+    const match = payload.match(/^\{(.+)\} (--raw --s 0)$/);
+    assert.ok(match, payload);
+    const copied = match[1].split(/(?<!\\), /).map(body => body.replaceAll('\\,', ',') + ' ' + match[2]);
+    assert.deepEqual(copied, all.slice(start, end));
+  }
+  const checkedRows = await page.locator('.copy.copied').evaluateAll(buttons => buttons.map(button => Number(button.dataset.index)));
+  assert.deepEqual(checkedRows, [...Array.from({length:10}, (_, i) => i), ...Array.from({length:12}, (_, i) => i + 20)]);
+  assert.match(await progress.innerText(), /21–32번.*12 \/ 12개/);
+  assert.ok(await next.isDisabled());
+  await page.locator('#appendCount').fill('1');
+  await page.locator('#append').click();
+  assert.match(await progress.innerText(), /33번.*0 \/ 1개/);
+  await next.click();
+  assert.equal(await page.evaluate(() => window.copiedText), (await prompts(page))[32]);
+  assert.ok(await next.isDisabled());
+});
+
 test('the main Midjourney action pastes one permutation and archiving never advances its queue', async t => {
   const page = await openPage(t);
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', {
@@ -1023,18 +1058,19 @@ test('appended scenes keep their own Midjourney parameters and fresh generation 
   await page.locator('#appendCount').fill('3');
   await page.locator('#append').click();
   const rows = await prompts(page);
-  for (const [indices, params] of [[[0, 1], '--raw --s 0'], [[2, 3, 4], '--ar 4:5 --chaos 17']]) {
-    await page.locator('#mjNext').click();
-    const clipboard = await page.evaluate(() => window.copiedText);
-    const bodies = indices.map(i => rows[i].slice(0, -params.length - 1).replaceAll(',', '\\,'));
-    assert.equal(clipboard, '{' + bodies.join(', ') + '} ' + params);
-  }
+  assert.ok(rows.slice(0, 2).every(row => row.endsWith(' --raw --s 0')));
+  const params = '--ar 4:5 --chaos 17';
+  await page.locator('#mjNext').click();
+  const clipboard = await page.evaluate(() => window.copiedText);
+  const bodies = rows.slice(2).map(row => row.slice(0, -params.length - 1).replaceAll(',', '\\,'));
+  assert.equal(clipboard, '{' + bodies.join(', ') + '} ' + params);
   await page.locator('#appendCount').fill('200');
   await page.locator('#append').click();
   assert.equal(await page.locator('.result-row').count(), 205);
   await generate(page);
   assert.equal(await page.locator('.result-row').count(), 2);
   assert.equal(await page.locator('.copy.copied').count(), 0);
+  assert.equal(await page.locator('#mjProgress').innerText(), '0 / 2개 복사됨');
 });
 
 test('archiving before append leaves input scenes available and the expanded archive unmarked', async t => {
