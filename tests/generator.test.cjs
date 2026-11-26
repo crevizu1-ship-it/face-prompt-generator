@@ -148,10 +148,11 @@ test('recommended generation uses the reference and balanced views across all fi
     texts: Array.from(row.querySelectorAll('.prompt'), element => element.textContent),
   })));
   for (const {tag, texts} of rows) {
-    assert.match(tag, /참조 헤어 유지/);
+    assert.match(tag, /이마·눈썹 드러냄/);
     assert.equal(texts.length, 5);
     for (const text of texts) {
-      assert.match(text, /same face and hairstyle as the reference image/i);
+      assert.match(text, /same face, hair color, length and parting as the reference image/i);
+      assert.match(text, /forehead.*hairline.*brows/i);
       assert.doesNotMatch(text, /undefined|null|with\s+wearing|,\s*,/);
       assert.equal(text.includes('relaxed shoulders'), tag.startsWith('상반신'));
     }
@@ -160,6 +161,35 @@ test('recommended generation uses the reference and balanced views across all fi
   await model(page, 'Midjourney').uncheck();
   assert.equal(await page.locator('#mjReference').isVisible(), false);
   assert.equal(await page.locator('#referenceHelp').isVisible(), true);
+});
+
+test('forehead styling applies to new recommended scenes only and leaves selected bangs available in random mode', async t => {
+  const page = await openPage(t);
+  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL']) await model(page, name).check();
+  const setting = page.getByRole('checkbox', {name:'추천 생성 시 이마와 눈썹 드러내기'});
+  assert.equal(await setting.isChecked(), true);
+  await selectOnly(page, 0);
+  await bucket(page, 0).getByRole('checkbox', {name:/일자 앞머리 장발/}).check();
+  await page.locator('#count').fill('1');
+  await page.locator('#recommend').click();
+  const original = await prompts(page);
+  assert.match(original[0], /exposed forehead and hairline, unobstructed brows/);
+  assert.ok(original.every(text => !text.includes('blunt bangs')));
+  await setting.uncheck();
+  await page.locator('#append').click();
+  const appended = await prompts(page);
+  assert.deepEqual(appended.slice(0, 5), original);
+  for (const text of appended.slice(5)) {
+    assert.match(text, /same face and hairstyle as the reference image/);
+    assert.doesNotMatch(text, /forehead|hairline|blunt bangs/i);
+  }
+  assert.match(await page.locator('.tagline').last().innerText(), /참조 헤어 유지/);
+  await setting.check();
+  await generate(page);
+  for (const text of await prompts(page)) {
+    assert.match(text, /long hair with blunt bangs/);
+    assert.doesNotMatch(text, /forehead|hairline/i);
+  }
 });
 
 test('recommended append fills missing selected directions and random generation restores selected hair', async t => {

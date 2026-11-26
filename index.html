@@ -75,11 +75,14 @@ button.copied{background:var(--soft);border-color:var(--accent);color:var(--acce
       <p>V7에서 <a href="https://docs.midjourney.com/hc/en-us/articles/36285124473997-Omni-Reference" target="_blank" rel="noopener noreferrer">Omni Reference</a>로 얼굴을 참조할 때는 Fast 옵션을 해제하세요.</p>
     </div>
   </div>
+  <div class="model-setting">
+    <label><input id="clearForehead" type="checkbox" checked> 추천 생성 시 이마와 눈썹 드러내기</label>
+  </div>
   <div class="generate-actions">
     <button id="generate" class="primary">랜덤 프롬프트 생성</button>
     <button id="recommend" aria-describedby="recommendHint">얼굴 학습용 추천 생성</button>
   </div>
-  <p id="recommendHint" class="muted">추천 생성은 참조 얼굴과 헤어를 유지하도록 요청하고, 선택한 얼굴 방향을 고르게 배분합니다.</p>
+  <p id="recommendHint" class="muted">추천 생성은 기준 얼굴을 사용하고, 선택한 얼굴 방향을 고르게 배분합니다. 이마를 드러낼 때도 기준 사진의 머리 길이와 가르마를 따릅니다.</p>
 </section>
 <section>
   <div class="result-head">
@@ -167,7 +170,13 @@ const neutral={ko:'무표정',en:'neutral facial expression, relaxed facial musc
 const closeUp = {ko:'얼굴 클로즈업', en:'face close-up portrait'};
 const waistUp = {ko:'상반신', en:'waist-up portrait'};
 const noBackground = {ko:'배경 미지정', en:''};
-const referenceHair = {ko:'참조 헤어 유지', en:''};
+const referenceHair = {ko:'참조 헤어 유지', en:'', reference:'same face and hairstyle as the reference image'};
+const sweptHair = {
+  ko:'이마·눈썹 드러냄',
+  en:'hair swept aside to reveal the forehead, natural hairline and eyebrows',
+  short:'exposed forehead and hairline, unobstructed brows',
+  reference:'same face, hair color, length and parting as the reference image',
+};
 const faceDirections = ['정면', '왼쪽 사선', '오른쪽 사선', '왼쪽 옆얼굴', '오른쪽 옆얼굴'];
 const basicAngles = new Set(['정면', '왼쪽 3/4', '오른쪽 3/4', '완전 왼쪽 측면', '완전 오른쪽 측면']);
 
@@ -365,7 +374,7 @@ function midjourneyPrompt(shot, options) {
   const crop = frame === closeUp ? 'face close-up' : 'waist-up';
   const subject = options.prefix === $('prefix').defaultValue ? crop + ' photo' : joinPhrases([options.prefix, crop + ' portrait']);
   return joinPhrases([subject, face, view, shot.bodyPose,
-    hair.en, outfit.en, backdrop, ...environment.map(x => x.short || x.en), options.suffix]);
+    hair.short || hair.en, outfit.en, backdrop, ...environment.map(x => x.short || x.en), options.suffix]);
 }
 
 function gptImagePrompt(shot, options) {
@@ -430,7 +439,7 @@ const formatters = {
 
 function build(groups, n, neutralTotal, closeTotal, options) {
   const [hair, angle, outfit, expression, background, poses] = groups;
-  const hairstyles = options.recommended ? Array(n).fill(referenceHair) : balanced(hair, n);
+  const hairstyles = options.recommended ? Array(n).fill(options.referenceHair) : balanced(hair, n);
   const angles = options.recommended ? recommendedAngles(angle, n, options.previous) : balanced(angle, n);
   const outfits = balanced(outfit, n);
   const expressions = shuffle([...Array(neutralTotal).fill(neutral), ...balanced(expression, n - neutralTotal)]);
@@ -591,11 +600,12 @@ function generate(append = false, recommended = false) {
     $('status').textContent = '필요한 카테고리에서 하나 이상 선택하세요.';
     return;
   }
+  const hair = $('clearForehead').checked ? sweptHair : referenceHair;
   const scenes = build(groups, n, neutrals, closeUps, {
-    recommended, previous: append ? output : [],
+    recommended, referenceHair: hair, previous: append ? output : [],
     weather: $('useWeather').checked, time: $('useTime').checked, lighting: $('useLighting').checked,
     prefix: $('prefix').value.trim(), params: $('params').value.trim(),
-    suffix: joinPhrases([$('suffix').value.trim(), recommended && 'same face and hairstyle as the reference image']),
+    suffix: joinPhrases([$('suffix').value.trim(), recommended && hair.reference]),
   });
   const start = append ? output.length : 0;
   if (append) output.push(...scenes);
