@@ -65,6 +65,60 @@ test('first batch has 16 neutral expressions and 14 face close-ups in 20 prompts
   assert.match(await page.locator('#frameEstimate').innerText(), /14개.*6개/);
 });
 
+test('recommended generation uses the reference and balanced views across all five models', async t => {
+  const page = await openPage(t);
+  for (const name of ['GPT Image', 'Gemini (Nano Banana)', 'FLUX.2', 'Stable Diffusion XL']) await model(page, name).check();
+  await page.locator('#mjCopyMode').selectOption('40');
+  await selectOnly(page, 0);
+  await selectOnly(page, 5, 0);
+  await page.locator('#recommend').click();
+  assert.equal(await page.locator('.result-row').count(), 40);
+  assert.match(await page.locator('#info').innerText(), /무표정 32개.*얼굴 클로즈업 28개/);
+  assert.deepEqual((await page.locator('#directionSummary').innerText()).match(/\d+개/g), Array(5).fill('8개'));
+  const rows = await page.locator('.result-row').evaluateAll(elements => elements.map(row => ({
+    tag: row.querySelector('.tagline').textContent,
+    texts: Array.from(row.querySelectorAll('.prompt'), element => element.textContent),
+  })));
+  for (const {tag, texts} of rows) {
+    assert.match(tag, /참조 헤어 유지/);
+    assert.equal(texts.length, 5);
+    for (const text of texts) {
+      assert.match(text, /same face and hairstyle as the reference image/i);
+      assert.doesNotMatch(text, /undefined|null|with\s+wearing|,\s*,/);
+      assert.equal(text.includes('relaxed shoulders'), tag.startsWith('상반신'));
+    }
+  }
+  assert.equal(await page.locator('#mjReference').isVisible(), true);
+  await model(page, 'Midjourney').uncheck();
+  assert.equal(await page.locator('#mjReference').isVisible(), false);
+  assert.equal(await page.locator('#referenceHelp').isVisible(), true);
+});
+
+test('recommended append fills missing selected directions and random generation restores selected hair', async t => {
+  const page = await openPage(t);
+  await selectOnly(page, 0, 0);
+  await selectOnly(page, 1, 0);
+  await page.locator('#count').fill('4');
+  await page.locator('#recommend').click();
+  const first = await prompts(page);
+  assert.ok(first.every(text => text.includes('front view')));
+  const angles = bucket(page, 1);
+  await angles.locator('.choice input').nth(3).check();
+  await angles.locator('.choice input').nth(8).check();
+  await page.locator('#appendCount').fill('2');
+  await page.locator('#append').click();
+  const all = await prompts(page);
+  assert.deepEqual(all.slice(0, 4), first);
+  assert.ok(all.slice(4).some(text => text.includes('left 3/4 view')));
+  assert.ok(all.slice(4).some(text => text.includes('full right side profile')));
+  assert.match(await page.locator('#directionSummary').innerText(), /정면 4개.*왼쪽 사선 1개.*오른쪽 사선 0개.*왼쪽 옆얼굴 0개.*오른쪽 옆얼굴 1개/);
+  await generate(page);
+  assert.equal(await page.locator('#referenceHelp').isVisible(), false);
+  assert.ok((await prompts(page)).every(text => text.includes('long straight hair') && !text.includes('reference image')));
+  await page.locator('#append').click();
+  assert.ok((await prompts(page)).every(text => text.includes('long straight hair')));
+});
+
 test('model, plan and scene count appear between the style library and generate button on both layouts', async t => {
   const page = await openPage(t);
   assert.deepEqual(await page.locator('main h2').allTextContents(), [
